@@ -135,7 +135,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ lang, onJumpTo }) => {
                   data-cursor="CV"
                   className="inline-flex items-center gap-2 rounded-xl border border-white/[0.18] bg-[#080B13]/75 px-5 py-3.5 font-sans text-sm font-semibold text-zinc-100 backdrop-blur-xl transition duration-300 hover:border-[#8B3DFF]/80 hover:bg-[#8B3DFF]/15 hover:text-white"
                 >
-                  {lang === 'en' ? 'Artist Practice & CV' : 'Práctica y CV'}
+                  {lang === 'en' ? 'Practice & Bio' : 'Práctica y Bio'}
                 </button>
               </Magnetic>
 
@@ -160,7 +160,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ lang, onJumpTo }) => {
             initial={{ opacity: 0, x: 18 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.7, delay: 0.24, ease: [0.22, 1, 0.36, 1] }}
-            className="min-w-0 rounded-2xl border border-white/[0.1] bg-[#06080F]/72 p-4 backdrop-blur-2xl sm:p-5 lg:col-span-4"
+            className="min-w-0 rounded-2xl border border-white/[0.1] bg-[#06080F]/75 p-4 backdrop-blur-2xl sm:p-5 lg:col-span-4"
           >
             <div className="mb-2.5 flex items-center justify-between border-b border-white/[0.1] pb-2.5">
               <span className="font-mono text-[10px] font-semibold tracking-[0.22em] text-zinc-400 uppercase">
@@ -223,7 +223,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ lang, onJumpTo }) => {
       <div className="relative z-10 mx-auto mt-10 flex w-full max-w-7xl flex-wrap items-center justify-between gap-4 border-t border-white/[0.09] pt-4 pr-0 font-mono text-[10.5px] tracking-[0.16em] text-zinc-400 uppercase sm:pr-44">
         <button
           type="button"
-          onClick={() => onJumpTo('#works')}
+          onClick={() => onJumpTo('#practice')}
           data-cursor="SCROLL"
           className="group inline-flex items-center gap-2 text-zinc-200 transition hover:text-[#2EFF7B]"
         >

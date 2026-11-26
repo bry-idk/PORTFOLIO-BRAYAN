@@ -60,7 +60,7 @@ export const ProjectsShowcase: React.FC<ProjectsShowcaseProps> = ({
       {/* Flush Seamless Sticky Chapter Dock directly below Navbar */}
       <div
         ref={dockRef}
-        className="sticky top-[64px] z-40 w-full border-y border-white/[0.08] bg-[#06070B]/[0.96] backdrop-blur-2xl before:pointer-events-none before:absolute before:inset-x-0 before:-top-4 before:h-4 before:bg-[#06070B]/[0.97] before:backdrop-blur-2xl"
+        className="sticky top-[64px] z-40 w-full border-y border-white/[0.08] bg-[#06070B]/95 backdrop-blur-2xl"
       >
         <div className="mx-auto flex w-full max-w-7xl items-center gap-3 px-4 py-2 sm:px-8 lg:px-12">
           {/* Live Chapter Counter */}

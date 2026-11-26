@@ -34,6 +34,10 @@ export const FLUID_SIM_FRAGMENT_SHADER = /* glsl */ `
 
   vec2 decodeVel(vec4 s) {
     vec2 result = s.rg * 2.0 - 1.0;
+    // Eliminate 8-bit UnsignedByteType neutral quantization drift (128/255 bias) when idle
+    if (length(result) < 0.009) {
+      return vec2(0.0);
+    }
     return result;
   }
 
@@ -110,10 +114,10 @@ export const FLUID_SIM_FRAGMENT_SHADER = /* glsl */ `
       float rippleLaplacian = avgRipple - ripple;
       ripple = clamp(ripple + rippleLaplacian * 0.48 * dtScale, 0.0, 1.0);
 
-      // Smooth velvety dissipation so silk ribbons linger and dissolve gracefully
-      vel *= pow(0.962, dtScale);
-      density *= pow(0.975, dtScale);
-      ripple *= pow(0.948, dtScale);
+      // Smooth velvety dissipation so silk ribbons linger crisply without pooling into opaque haze
+      vel *= pow(0.964, dtScale);
+      density *= pow(0.956, dtScale);
+      ripple *= pow(0.955, dtScale);
 
       // Subtle living right-stage studio plume near the hero sculpture (keeps left typography tranquil)
       float heroAmbient = clamp(uHeroFocus, 0.0, 1.0);

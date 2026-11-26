@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import Lenis from 'lenis'
@@ -7,12 +7,19 @@ import { CustomCursor } from './components/CustomCursor'
 import { HeroSection } from './components/HeroSection'
 import { MediaLightbox } from './components/MediaLightbox'
 import { Navbar } from './components/Navbar'
-import { ProfileSection } from './components/ProfileSection'
+import {
+  PracticeIntroSection,
+  TrajectoryAndAwardsSection,
+} from './components/ProfileSection'
 import { ProjectsShowcase } from './components/ProjectsShowcase'
 import { ExperienceCanvas } from './components/webgl/ExperienceCanvas'
 import { PROJECTS_DATA } from './data/projectsData'
 import { Lang, MediaAsset, ProjectId } from './types/portfolio'
 import * as synthAudio from './utils/synthAudio'
+
+const GestureScrollController = lazy(
+  () => import('./components/GestureScrollController')
+)
 
 gsap.registerPlugin(ScrollTrigger)
 
@@ -36,15 +43,19 @@ function getInitialReducedMotion(): boolean {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches
 }
 
+export type SectionId = 'hero' | 'practice' | 'works' | 'cv' | 'awards' | 'connect'
+
 export function App() {
   const [lang, setLang] = useState<Lang>(getInitialLang)
   const [activeProjectId, setActiveProjectId] = useState<ProjectId | null>(null)
+  const [activeSection, setActiveSection] = useState<SectionId>('hero')
   const [inHero, setInHero] = useState<boolean>(true)
   const [scrollProgress, setScrollProgress] = useState<number>(0)
   const [reducedMotion, setReducedMotion] = useState<boolean>(
     getInitialReducedMotion
   )
   const [soundEnabled, setSoundEnabled] = useState<boolean>(false)
+  const [gestureEnabled, setGestureEnabled] = useState<boolean>(false)
   const [lightboxState, setLightboxState] = useState<{
     items: MediaAsset[]
     index: number | null
@@ -52,6 +63,7 @@ export function App() {
 
   const lenisRef = useRef<Lenis | null>(null)
   const soundEnabledRef = useRef<boolean>(false)
+  const gestureScrollResidualRef = useRef<number>(0)
 
   const isLightboxOpen =
     lightboxState.index !== null &&
@@ -218,9 +230,46 @@ export function App() {
       heroObserver.observe(heroEl)
     }
 
+    const visibleSections = new Set<SectionId>()
+    const sectionOrder: SectionId[] = [
+      'awards',
+      'connect',
+      'cv',
+      'practice',
+      'works',
+      'hero',
+    ]
+    const sectionObserver = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          const id = entry.target.id as SectionId
+          if (entry.isIntersecting) {
+            visibleSections.add(id)
+          } else {
+            visibleSections.delete(id)
+          }
+        }
+        const nextSection =
+          sectionOrder.find((id) => visibleSections.has(id)) ?? null
+        if (nextSection) {
+          setActiveSection((prev) => (prev === nextSection ? prev : nextSection))
+        }
+      },
+      {
+        rootMargin: '-28% 0px -55% 0px',
+        threshold: 0,
+      }
+    )
+
+    for (const secId of ['hero', 'practice', 'works', 'cv', 'awards', 'connect']) {
+      const secEl = document.getElementById(secId)
+      if (secEl) sectionObserver.observe(secEl)
+    }
+
     return () => {
       projectObserver.disconnect()
       heroObserver?.disconnect()
+      sectionObserver.disconnect()
     }
   }, [])
 
@@ -278,6 +327,36 @@ export function App() {
     }
   }, [])
 
+  const handleToggleGesture = useCallback(() => {
+    gestureScrollResidualRef.current = 0
+    setGestureEnabled((prev) => !prev)
+  }, [])
+
+  const handleGestureScrollDelta = useCallback((deltaY: number) => {
+    if (
+      typeof window === 'undefined' ||
+      !Number.isFinite(deltaY) ||
+      deltaY === 0
+    ) {
+      return
+    }
+    const accumulated = gestureScrollResidualRef.current + deltaY
+    const wholePx = Math.trunc(accumulated)
+    gestureScrollResidualRef.current = accumulated - wholePx
+    if (wholePx === 0) return
+
+    const maxScroll = Math.max(
+      0,
+      document.documentElement.scrollHeight - window.innerHeight
+    )
+    const nextY = Math.max(0, Math.min(maxScroll, window.scrollY + wholePx))
+    if (lenisRef.current) {
+      lenisRef.current.scrollTo(nextY, { immediate: true, force: true })
+    } else if (typeof window.scrollTo === 'function') {
+      window.scrollTo({ top: nextY })
+    }
+  }, [])
+
   const handleJumpTo = useCallback((selector: string) => {
     const target = document.querySelector(selector) as HTMLElement | null
     if (!target) return
@@ -326,15 +405,20 @@ export function App() {
         lang={lang}
         onToggleLang={handleToggleLang}
         activeProject={activeProject}
+        activeSection={activeProjectId ? 'works' : activeSection}
         onJumpTo={handleJumpTo}
         scrollProgress={scrollProgress}
         soundEnabled={soundEnabled}
         onToggleSound={handleToggleSound}
+        gestureEnabled={gestureEnabled}
+        onToggleGesture={handleToggleGesture}
       />
 
       {/* Main Content */}
       <main className="relative z-10">
         <HeroSection lang={lang} onJumpTo={handleJumpTo} />
+
+        <PracticeIntroSection lang={lang} onJumpTo={handleJumpTo} />
 
         <ProjectsShowcase
           lang={lang}
@@ -344,7 +428,7 @@ export function App() {
           soundEnabled={soundEnabled}
         />
 
-        <ProfileSection lang={lang} onJumpTo={handleJumpTo} />
+        <TrajectoryAndAwardsSection lang={lang} onJumpTo={handleJumpTo} />
       </main>
 
       <ContactFooter lang={lang} onJumpTo={handleJumpTo} />
@@ -358,6 +442,19 @@ export function App() {
         onClose={handleCloseLightbox}
         onChangeIndex={handleChangeLightboxIndex}
       />
+
+      {/* Optional MediaPipe Webcam Air-Gesture Scroll HUD */}
+      {gestureEnabled ? (
+        <Suspense fallback={null}>
+          <GestureScrollController
+            lang={lang}
+            accentHex={activeProject?.theme.accentHex}
+            paused={isLightboxOpen}
+            onScrollDelta={handleGestureScrollDelta}
+            onClose={() => setGestureEnabled(false)}
+          />
+        </Suspense>
+      ) : null}
     </div>
   )
 }

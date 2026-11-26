@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { Film, Pause, Play, RotateCcw, Volume2, VolumeX } from 'lucide-react'
 import { Lang, VideoAsset } from '../types/portfolio'
+import { mediaUrl } from '../utils/mediaUrl'
 
 export interface VideoPlayerProps {
   video: VideoAsset
@@ -118,7 +119,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
           <div className="relative flex h-full w-full items-center justify-center overflow-hidden bg-[#06080E]">
             {video.poster && (
               <img
-                src={video.poster}
+                src={mediaUrl(video.poster)}
                 alt={video.title[lang]}
                 loading="lazy"
                 decoding="async"
@@ -153,8 +154,8 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
           <>
             <video
               ref={vidRef}
-              src={video.src}
-              poster={video.poster}
+              src={mediaUrl(video.src)}
+              poster={video.poster ? mediaUrl(video.poster) : undefined}
               muted={muted}
               playsInline
               loop
@@ -205,7 +206,15 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
               <button
                 type="button"
                 onClick={toggleMute}
-                aria-label={muted ? 'Unmute' : 'Mute'}
+                aria-label={
+                  muted
+                    ? lang === 'en'
+                      ? 'Unmute'
+                      : 'Activar audio'
+                    : lang === 'en'
+                      ? 'Mute'
+                      : 'Silenciar audio'
+                }
                 className="flex h-8 w-8 items-center justify-center rounded-full border border-white/20 bg-black/70 text-zinc-200 backdrop-blur-md transition hover:border-white/50 hover:text-white"
               >
                 {muted ? (
@@ -217,7 +226,15 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
               <button
                 type="button"
                 onClick={togglePlay}
-                aria-label={playing ? 'Pause' : 'Play'}
+                aria-label={
+                  playing
+                    ? lang === 'en'
+                      ? 'Pause'
+                      : 'Pausar'
+                    : lang === 'en'
+                      ? 'Play'
+                      : 'Reproducir'
+                }
                 className="flex h-8 w-8 items-center justify-center rounded-full border border-white/20 bg-black/70 text-zinc-200 backdrop-blur-md transition hover:border-white/50 hover:text-white"
               >
                 {playing ? (

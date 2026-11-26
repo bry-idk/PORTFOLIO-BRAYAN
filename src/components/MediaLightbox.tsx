@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ChevronLeft, ChevronRight, X, ZoomIn, ZoomOut } from 'lucide-react'
 import { Lang, MediaAsset } from '../types/portfolio'
+import { mediaUrl } from '../utils/mediaUrl'
 
 export interface MediaLightboxProps {
   items: MediaAsset[]
@@ -263,7 +264,7 @@ export const MediaLightbox: React.FC<MediaLightboxProps> = ({
               }`}
             >
               <img
-                src={activeItem.src}
+                src={mediaUrl(activeItem.src)}
                 alt={activeItem.alt[lang]}
                 onClick={() => setZoomed((z) => !z)}
                 className={`rounded-xl border border-white/15 object-contain shadow-2xl transition-transform duration-300 ease-out ${
@@ -321,7 +322,7 @@ export const MediaLightbox: React.FC<MediaLightboxProps> = ({
                       }}
                     >
                       <img
-                        src={item.src}
+                        src={mediaUrl(item.src)}
                         alt=""
                         loading="lazy"
                         decoding="async"

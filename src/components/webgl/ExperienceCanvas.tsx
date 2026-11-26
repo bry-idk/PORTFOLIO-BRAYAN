@@ -828,9 +828,9 @@ const SpatialParticles: React.FC<SceneProps> = ({
   const bokehMatRef = useRef<THREE.ShaderMaterial>(null)
   const { gl } = useThree()
 
-  // Tier 1: Curl-Noise Micro-Motes & Starlight Sparks (760 desktop / 300 low-power)
+  // Tier 1: Curl-Noise Micro-Motes & Starlight Sparks (1300 desktop / 480 low-power)
   const tier1Data = useMemo(() => {
-    const count = lowPower ? 300 : 760
+    const count = lowPower ? 480 : 1300
     const positions = new Float32Array(count * 3)
     const scales = new Float32Array(count)
     const phases = new Float32Array(count)
@@ -848,8 +848,8 @@ const SpatialParticles: React.FC<SceneProps> = ({
       positions[i * 3 + 1] = (ry - 0.5) * 10.5
       positions[i * 3 + 2] = -rz * 6.4 + 0.6
 
-      // Mostly crisp fine dust motes with select bright starlight sparks
-      scales[i] = rC > 0.86 ? 2.4 + rA * 1.4 : 0.85 + rA * 1.45
+      // Crisp micro-dust motes & luminous starlight glints
+      scales[i] = rC > 0.82 ? 2.6 + rA * 1.55 : 0.95 + rA * 1.55
       phases[i] = i * 0.37
       randoms[i * 3] = rA
       randoms[i * 3 + 1] = rB
@@ -858,9 +858,9 @@ const SpatialParticles: React.FC<SceneProps> = ({
     return { positions, scales, phases, randoms }
   }, [lowPower])
 
-  // Tier 2: Orbital Sculpture Embers (240 desktop / 100 low-power)
+  // Tier 2: Orbital Sculpture Embers (340 desktop / 140 low-power)
   const tier2Data = useMemo(() => {
-    const count = lowPower ? 100 : 240
+    const count = lowPower ? 140 : 340
     const positions = new Float32Array(count * 3)
     const scales = new Float32Array(count)
     const phases = new Float32Array(count)
@@ -879,7 +879,7 @@ const SpatialParticles: React.FC<SceneProps> = ({
       positions[i * 3 + 1] = rAngle * Math.PI * 2
       positions[i * 3 + 2] = (rTilt - 0.5) * 2.15
 
-      scales[i] = 0.95 + rColor * 1.65
+      scales[i] = 1.05 + rColor * 1.75
       phases[i] = i * 0.61
       randoms[i * 3] = rSpeed
       randoms[i * 3 + 1] = rHelix
@@ -888,9 +888,9 @@ const SpatialParticles: React.FC<SceneProps> = ({
     return { positions, scales, phases, randoms }
   }, [lowPower])
 
-  // Tier 3: Cinematic Optical Bokeh Orbs (34 desktop / 20 low-power)
+  // Tier 3: Cinematic Optical Bokeh Orbs (46 desktop / 24 low-power)
   const tier3Data = useMemo(() => {
-    const count = lowPower ? 20 : 34
+    const count = lowPower ? 24 : 46
     const positions = new Float32Array(count * 3)
     const scales = new Float32Array(count)
     const phases = new Float32Array(count)
@@ -929,7 +929,7 @@ const SpatialParticles: React.FC<SceneProps> = ({
       uPointerSpeed: { value: 0 },
       uScroll: { value: 0 },
       uPixelRatio: { value: cappedPixelRatio },
-      uOpacity: { value: heroFocus ? 1.0 : 0.48 },
+      uOpacity: { value: heroFocus ? 1.0 : 0.80 },
       uColorA: { value: DEFAULT_COLOR_A.clone() },
       uColorB: { value: DEFAULT_COLOR_B.clone() },
       uColorC: { value: DEFAULT_COLOR_C.clone() },
@@ -946,7 +946,7 @@ const SpatialParticles: React.FC<SceneProps> = ({
       uSculpturePos: { value: new THREE.Vector3(1.4, 0.12, 0) },
       uSculptureScale: { value: 0.95 },
       uPixelRatio: { value: cappedPixelRatio },
-      uOpacity: { value: heroFocus ? 0.95 : 0.12 },
+      uOpacity: { value: heroFocus ? 0.95 : 0.18 },
       uColorA: { value: DEFAULT_COLOR_A.clone() },
       uColorB: { value: DEFAULT_COLOR_B.clone() },
       uColorC: { value: DEFAULT_COLOR_C.clone() },
@@ -961,7 +961,7 @@ const SpatialParticles: React.FC<SceneProps> = ({
       uMouse: { value: new THREE.Vector2(0.5, 0.5) },
       uScroll: { value: 0 },
       uPixelRatio: { value: cappedPixelRatio },
-      uOpacity: { value: heroFocus ? 1.0 : 0.55 },
+      uOpacity: { value: heroFocus ? 1.0 : 0.78 },
       uColorA: { value: DEFAULT_COLOR_A.clone() },
       uColorB: { value: DEFAULT_COLOR_B.clone() },
       uColorC: { value: DEFAULT_COLOR_C.clone() },
@@ -1001,7 +1001,7 @@ const SpatialParticles: React.FC<SceneProps> = ({
       )
       u.uOpacity.value = THREE.MathUtils.lerp(
         u.uOpacity.value,
-        heroFocus ? 1.0 : 0.45,
+        heroFocus ? 1.0 : 0.80,
         0.05
       )
       u.uColorA.value.lerp(targetA, 0.04)
@@ -1021,7 +1021,7 @@ const SpatialParticles: React.FC<SceneProps> = ({
       )
       u.uSculpturePos.value.set(sync.x, sync.y, sync.z)
       u.uSculptureScale.value = sync.scale
-      u.uOpacity.value = THREE.MathUtils.lerp(0.1, 0.96, sync.focus)
+      u.uOpacity.value = THREE.MathUtils.lerp(0.18, 0.98, sync.focus)
       u.uColorA.value.lerp(targetA, 0.045)
       u.uColorB.value.lerp(targetB, 0.045)
       u.uColorC.value.lerp(targetC, 0.045)
@@ -1039,7 +1039,7 @@ const SpatialParticles: React.FC<SceneProps> = ({
       )
       u.uOpacity.value = THREE.MathUtils.lerp(
         u.uOpacity.value,
-        heroFocus ? 1.0 : 0.5,
+        heroFocus ? 1.0 : 0.78,
         0.045
       )
       u.uColorA.value.lerp(targetA, 0.035)

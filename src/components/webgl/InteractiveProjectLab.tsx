@@ -6,6 +6,7 @@ import {
 } from '../../shaders/projectLabShaders'
 import { Lang, ProjectData } from '../../types/portfolio'
 import { playHoverTick, playLaneNote } from '../../utils/synthAudio'
+import { mediaUrl } from '../../utils/mediaUrl'
 import { detectWebGLSupport, isLowPowerDevice } from '../../utils/webglSupport'
 
 export interface InteractiveProjectLabProps {
@@ -185,6 +186,9 @@ export const InteractiveProjectLab: React.FC<InteractiveProjectLabProps> = ({
   const [contextLost, setContextLost] = useState(false)
   const [restoreCount, setRestoreCount] = useState(0)
   const [presetIdx, setPresetIdx] = useState(0)
+  const [textureReady, setTextureReady] = useState(false)
+  const [textureError, setTextureError] = useState(false)
+  const [imgFallbackError, setImgFallbackError] = useState(false)
 
   // Interactive parameters per project mode
   const [paramA, setParamA] = useState(defaultParamA)
@@ -301,6 +305,7 @@ export const InteractiveProjectLab: React.FC<InteractiveProjectLabProps> = ({
   }, [mode, inView, triggerBeatLane])
 
   const activeTextureSrc = presets[presetIdx]?.src || presets[0].src
+  const resolvedTextureSrc = mediaUrl(activeTextureSrc)
 
   // Effect 1: Persistent WebGLRenderer lifecycle (decoupled from activeTextureSrc so preset switches NEVER rebuild the WebGL context)
   useEffect(() => {
@@ -533,45 +538,66 @@ export const InteractiveProjectLab: React.FC<InteractiveProjectLabProps> = ({
     }
   }, [inView, webglOk, mode, lowPower])
 
+  useEffect(() => {
+    setImgFallbackError(false)
+  }, [resolvedTextureSrc])
+
   // Effect 2: Hot-swap preset texture into persistent shader with smooth 350ms GLSL crossfade
   useEffect(() => {
     const runtime = runtimeRef.current
     if (!inView || !webglOk || !runtime || runtime.disposed) return
 
+    setTextureError(false)
+    setImgFallbackError(false)
+    if (!runtime.currentTexture) {
+      setTextureReady(false)
+    }
+
     const token = ++loadTokenRef.current
-    runtime.loader.load(activeTextureSrc, (loaded) => {
-      if (runtime.disposed || token !== loadTokenRef.current) {
-        loaded.dispose()
-        return
-      }
-      loaded.minFilter = THREE.LinearFilter
-      loaded.magFilter = THREE.LinearFilter
-      loaded.generateMipmaps = false
-
-      if (runtime.currentTexture) {
-        if (runtime.prevTexture) {
-          runtime.prevTexture.dispose()
+    runtime.loader.load(
+      resolvedTextureSrc,
+      (loaded) => {
+        if (runtime.disposed || token !== loadTokenRef.current) {
+          loaded.dispose()
+          return
         }
-        runtime.prevTexture = runtime.currentTexture
-        runtime.currentTexture = loaded
+        loaded.minFilter = THREE.LinearFilter
+        loaded.magFilter = THREE.LinearFilter
+        loaded.generateMipmaps = false
 
-        runtime.uniforms.uPrevTexture.value = runtime.prevTexture
-        runtime.uniforms.uHasPrevTexture.value = 1
-        runtime.uniforms.uTexture.value = loaded
-        runtime.uniforms.uHasTexture.value = 1
-        runtime.uniforms.uMix.value = 0
-        runtime.crossfadeStartMs = performance.now()
-        runtime.crossfading = true
-      } else {
-        runtime.currentTexture = loaded
-        runtime.uniforms.uTexture.value = loaded
-        runtime.uniforms.uHasTexture.value = 1
-        runtime.uniforms.uHasPrevTexture.value = 0
-        runtime.uniforms.uMix.value = 1
-        runtime.crossfading = false
+        if (runtime.currentTexture) {
+          if (runtime.prevTexture) {
+            runtime.prevTexture.dispose()
+          }
+          runtime.prevTexture = runtime.currentTexture
+          runtime.currentTexture = loaded
+
+          runtime.uniforms.uPrevTexture.value = runtime.prevTexture
+          runtime.uniforms.uHasPrevTexture.value = 1
+          runtime.uniforms.uTexture.value = loaded
+          runtime.uniforms.uHasTexture.value = 1
+          runtime.uniforms.uMix.value = 0
+          runtime.crossfadeStartMs = performance.now()
+          runtime.crossfading = true
+        } else {
+          runtime.currentTexture = loaded
+          runtime.uniforms.uTexture.value = loaded
+          runtime.uniforms.uHasTexture.value = 1
+          runtime.uniforms.uHasPrevTexture.value = 0
+          runtime.uniforms.uMix.value = 1
+          runtime.crossfading = false
+        }
+        setTextureReady(true)
+        setTextureError(false)
+      },
+      undefined,
+      () => {
+        if (!runtime.disposed && token === loadTokenRef.current) {
+          setTextureError(true)
+        }
       }
-    })
-  }, [inView, webglOk, mode, activeTextureSrc, restoreCount])
+    )
+  }, [inView, webglOk, mode, resolvedTextureSrc, restoreCount])
 
   const handlePointer = (clientX: number, clientY: number) => {
     const el = canvasHostRef.current
@@ -638,7 +664,7 @@ export const InteractiveProjectLab: React.FC<InteractiveProjectLabProps> = ({
   return (
     <div
       ref={containerRef}
-      className="group relative overflow-hidden rounded-3xl border border-white/10 bg-[#0A0C13]/90 p-5 shadow-2xl backdrop-blur-xl transition-colors duration-300 sm:p-6"
+      className="group relative overflow-hidden rounded-2xl border border-white/[0.09] bg-[#070910]/90 p-5 shadow-2xl backdrop-blur-xl transition-colors duration-300 sm:p-7"
       style={
         {
           '--lab-glow-x': '50%',
@@ -666,21 +692,21 @@ export const InteractiveProjectLab: React.FC<InteractiveProjectLabProps> = ({
       />
 
       {/* Header strip */}
-      <div className="relative z-10 mb-4 flex flex-wrap items-start justify-between gap-3">
-        <div>
+      <div className="relative z-10 mb-5 flex flex-wrap items-start justify-between gap-4 border-b border-white/[0.08] pb-4">
+        <div className="min-w-0">
           <div className="flex items-center gap-2">
             <span
-              className="inline-block h-2 w-2 animate-pulse rounded-full"
+              className="inline-block h-1.5 w-1.5 animate-pulse rounded-full"
               style={{
                 backgroundColor: project.theme.accentHex,
                 boxShadow: `0 0 10px ${project.theme.accentHex}`,
               }}
             />
-            <span className="font-mono text-[11px] font-semibold tracking-widest text-zinc-400 uppercase">
+            <span className="font-mono text-[10.5px] font-semibold tracking-[0.2em] text-zinc-400 uppercase">
               {project.interactiveLab.subtitle[lang]}
             </span>
           </div>
-          <h4 className="mt-1 font-display text-lg font-bold tracking-tight text-white sm:text-xl">
+          <h4 className="mt-1.5 font-sans text-lg font-bold tracking-tight text-white sm:text-xl">
             {project.interactiveLab.title[lang]}
           </h4>
         </div>
@@ -703,10 +729,10 @@ export const InteractiveProjectLab: React.FC<InteractiveProjectLabProps> = ({
                     }
                   : undefined
               }
-              className={`rounded-full border px-3 py-1 font-mono text-[11px] transition-all ${
+              className={`rounded-lg border px-3 py-1.5 font-mono text-[11px] font-medium transition-all ${
                 presetIdx === idx
-                  ? 'bg-white/15 text-white'
-                  : 'border-white/10 bg-white/[0.03] text-zinc-400 hover:border-white/25 hover:text-zinc-200'
+                  ? 'bg-white/[0.12] text-white'
+                  : 'border-white/[0.1] bg-white/[0.03] text-zinc-400 hover:border-white/25 hover:text-zinc-200'
               }`}
             >
               {preset.label[lang]}
@@ -716,9 +742,9 @@ export const InteractiveProjectLab: React.FC<InteractiveProjectLabProps> = ({
             type="button"
             onClick={handleReset}
             aria-label={lang === 'en' ? 'Reset lab view' : 'Reiniciar vista'}
-            className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 font-mono text-[10px] tracking-wider text-zinc-400 uppercase transition-colors hover:border-white/30 hover:text-white"
+            className="rounded-lg border border-white/[0.1] bg-white/[0.03] px-3 py-1.5 font-mono text-[10.5px] tracking-wider text-zinc-400 uppercase transition-colors hover:border-white/30 hover:text-white"
           >
-            {lang === 'en' ? 'Reset' : 'Reset'}
+            {lang === 'en' ? 'Reset' : 'Reiniciar'}
           </button>
         </div>
       </div>
@@ -737,16 +763,18 @@ export const InteractiveProjectLab: React.FC<InteractiveProjectLabProps> = ({
           }
         }}
         onClick={(e) => handlePointer(e.clientX, e.clientY)}
-        className="relative z-10 aspect-[16/9] w-full cursor-crosshair overflow-hidden rounded-2xl border border-white/15 bg-black"
+        className="relative z-10 aspect-[16/9] w-full cursor-crosshair overflow-hidden rounded-xl border border-white/[0.12] bg-[#05060A]"
       >
-        {/* Static fallback preview if WebGL is off, offscreen, or recovering from context loss */}
-        {(!inView || !webglOk || contextLost) && (
-          <img
-            src={activeTextureSrc}
-            alt={project.title}
-            className="absolute inset-0 h-full w-full object-cover"
-          />
-        )}
+        {/* Static fallback preview if WebGL is off, offscreen, recovering, or texture failed/loading */}
+        {(!inView || !webglOk || contextLost || !textureReady || textureError) &&
+          !imgFallbackError && (
+            <img
+              src={resolvedTextureSrc}
+              alt={project.title}
+              onError={() => setImgFallbackError(true)}
+              className="absolute inset-0 h-full w-full object-cover opacity-85"
+            />
+          )}
 
         {/* Dedicated imperative WebGL host with zero React-managed children */}
         <div
@@ -822,7 +850,11 @@ export const InteractiveProjectLab: React.FC<InteractiveProjectLabProps> = ({
               max="1"
               step="0.01"
               value={paramA}
-              aria-label="Volumetric sunlight intensity"
+              aria-label={
+                lang === 'en'
+                  ? 'Volumetric sunlight intensity'
+                  : 'Intensidad de luz volumétrica'
+              }
               onChange={(e) => setParamA(parseFloat(e.target.value))}
               className="h-1.5 w-full cursor-pointer accent-[#F59E0B]"
             />
@@ -840,7 +872,11 @@ export const InteractiveProjectLab: React.FC<InteractiveProjectLabProps> = ({
               max="1"
               step="0.01"
               value={paramA}
-              aria-label="Ultrasonic sensor distance"
+              aria-label={
+                lang === 'en'
+                  ? 'Ultrasonic sensor distance'
+                  : 'Distancia del sensor ultrasónico'
+              }
               onChange={(e) => setParamA(parseFloat(e.target.value))}
               className="h-1.5 w-full cursor-pointer accent-[#FB7185]"
             />
@@ -858,7 +894,9 @@ export const InteractiveProjectLab: React.FC<InteractiveProjectLabProps> = ({
               max="1"
               step="0.01"
               value={paramA}
-              aria-label="LiDAR lens radius"
+              aria-label={
+                lang === 'en' ? 'LiDAR lens radius' : 'Radio del lente LiDAR'
+              }
               onChange={(e) => setParamA(parseFloat(e.target.value))}
               className="h-1.5 w-full cursor-pointer accent-[#22D3EE]"
             />
@@ -876,7 +914,9 @@ export const InteractiveProjectLab: React.FC<InteractiveProjectLabProps> = ({
               max="1"
               step="0.01"
               value={paramA}
-              aria-label="CRT glitch intensity"
+              aria-label={
+                lang === 'en' ? 'CRT glitch intensity' : 'Intensidad de glitch CRT'
+              }
               onChange={(e) => setParamA(parseFloat(e.target.value))}
               className="h-1.5 w-full cursor-pointer accent-[#EF4444]"
             />
@@ -894,7 +934,11 @@ export const InteractiveProjectLab: React.FC<InteractiveProjectLabProps> = ({
               max="1"
               step="0.01"
               value={paramA}
-              aria-label="VHS signal corruption"
+              aria-label={
+                lang === 'en'
+                  ? 'VHS signal corruption'
+                  : 'Corrupción de señal VHS'
+              }
               onChange={(e) => setParamA(parseFloat(e.target.value))}
               className="h-1.5 w-full cursor-pointer accent-[#A855F7]"
             />
@@ -912,7 +956,11 @@ export const InteractiveProjectLab: React.FC<InteractiveProjectLabProps> = ({
               max="1"
               step="0.01"
               value={paramA}
-              aria-label="Clay sculpting lathe intensity"
+              aria-label={
+                lang === 'en'
+                  ? 'Clay sculpting lathe intensity'
+                  : 'Intensidad de torno y relieve'
+              }
               onChange={(e) => setParamA(parseFloat(e.target.value))}
               className="h-1.5 w-full cursor-pointer accent-[#F59E0B]"
             />

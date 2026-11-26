@@ -1,6 +1,7 @@
-import React, { useEffect, useRef } from 'react'
-import { Maximize2 } from 'lucide-react'
+import React, { useEffect, useRef, useState } from 'react'
+import { ImageOff, Maximize2 } from 'lucide-react'
 import { Lang, MediaAsset } from '../types/portfolio'
+import { mediaUrl } from '../utils/mediaUrl'
 
 export interface ShaderImagePortalProps {
   asset: MediaAsset
@@ -8,8 +9,16 @@ export interface ShaderImagePortalProps {
   accentHex: string
   onOpen: () => void
   className?: string
+  aspect?: MediaAsset['aspect']
   showCaptionBar?: boolean
   priority?: boolean
+}
+
+const ASPECT_VIEWPORT_CLASS: Record<NonNullable<MediaAsset['aspect']>, string> = {
+  portrait: 'aspect-[3/4]',
+  landscape: 'aspect-[16/10]',
+  square: 'aspect-square',
+  wide: 'aspect-[16/9]',
 }
 
 export const ShaderImagePortal: React.FC<ShaderImagePortalProps> = ({
@@ -18,12 +27,22 @@ export const ShaderImagePortal: React.FC<ShaderImagePortalProps> = ({
   accentHex,
   onOpen,
   className = '',
+  aspect,
   showCaptionBar = true,
   priority = false,
 }) => {
   const cardRef = useRef<HTMLButtonElement>(null)
   const rafRef = useRef<number | null>(null)
   const pendingCoords = useRef<{ x: number; y: number } | null>(null)
+  const [imgError, setImgError] = useState(false)
+
+  useEffect(() => {
+    setImgError(false)
+  }, [asset.src])
+
+  const resolvedAspect = aspect ?? asset.aspect ?? 'landscape'
+  const viewportAspectClass = ASPECT_VIEWPORT_CLASS[resolvedAspect]
+  const resolvedSrc = mediaUrl(asset.src)
 
   useEffect(() => {
     return () => {
@@ -108,25 +127,40 @@ export const ShaderImagePortal: React.FC<ShaderImagePortalProps> = ({
           willChange: 'transform',
         } as React.CSSProperties
       }
-      className={`group relative flex flex-col overflow-hidden rounded-xl border border-white/[0.09] bg-[#080A10] text-left transition-[transform,border-color,box-shadow] duration-300 ease-out hover:border-white/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2EFF7B] ${className}`}
+      className={`group relative flex h-full w-full flex-col overflow-hidden rounded-2xl border border-white/[0.1] bg-[#070910]/90 text-left backdrop-blur-md transition-[transform,border-color,box-shadow] duration-300 ease-out hover:border-white/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2EFF7B] ${className}`}
     >
       {/* Subtle accent rim refraction on hover */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 z-20 rounded-xl opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+        className="pointer-events-none absolute inset-0 z-20 rounded-2xl opacity-0 transition-opacity duration-300 group-hover:opacity-100"
         style={{
           boxShadow: `inset 0 0 0 1px ${accentHex}66, 0 24px 60px -24px ${accentHex}55`,
         }}
       />
 
-      <div className="relative h-full w-full flex-1 overflow-hidden bg-[#06070B]">
-        <img
-          src={asset.src}
-          alt={asset.alt[lang]}
-          loading={priority ? 'eager' : 'lazy'}
-          decoding="async"
-          className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.045]"
-        />
+      <div
+        className={`relative w-full shrink-0 overflow-hidden bg-[#05060A] ${viewportAspectClass}`}
+      >
+        {imgError ? (
+          <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-[#06080F] px-4 text-center">
+            <ImageOff
+              className="h-6 w-6 opacity-70"
+              style={{ color: accentHex }}
+            />
+            <span className="font-mono text-[10px] tracking-wider text-zinc-400 uppercase">
+              {lang === 'en' ? 'Media Unavailable' : 'Imagen No Disponible'}
+            </span>
+          </div>
+        ) : (
+          <img
+            src={resolvedSrc}
+            alt={asset.alt[lang]}
+            loading={priority ? 'eager' : 'lazy'}
+            decoding="async"
+            onError={() => setImgError(true)}
+            className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.045]"
+          />
+        )}
 
         {/* Cursor-tracked specular caustic glare */}
         <div
@@ -150,13 +184,13 @@ export const ShaderImagePortal: React.FC<ShaderImagePortalProps> = ({
         {/* Editorial dark edge scrim for legible overlay badges */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-black/55 to-transparent"
+          className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-black/60 to-transparent"
         />
 
         {/* Top exhibition reference & optical zoom reticle */}
         <div className="pointer-events-none absolute top-2.5 right-2.5 left-2.5 z-10 flex items-center justify-between gap-2">
           {asset.pdfPageRef ? (
-            <span className="inline-flex items-center gap-1.5 rounded-md border border-white/15 bg-black/65 px-2 py-0.5 font-mono text-[10px] font-semibold tracking-wider text-zinc-200 backdrop-blur-md">
+            <span className="inline-flex items-center gap-1.5 rounded-md border border-white/15 bg-black/70 px-2 py-0.5 font-mono text-[10px] font-semibold tracking-wider text-zinc-200 backdrop-blur-md">
               <span
                 className="h-1.5 w-1.5 rounded-full"
                 style={{ backgroundColor: accentHex }}
@@ -164,12 +198,12 @@ export const ShaderImagePortal: React.FC<ShaderImagePortalProps> = ({
               {asset.pdfPageRef}
             </span>
           ) : (
-            <span className="rounded-md border border-white/15 bg-black/60 px-2 py-0.5 font-mono text-[10px] tracking-wider text-zinc-300 backdrop-blur-md">
-              ARCHIVE
+            <span className="rounded-md border border-white/15 bg-black/65 px-2 py-0.5 font-mono text-[10px] tracking-wider text-zinc-300 backdrop-blur-md">
+              {lang === 'en' ? 'ARCHIVE' : 'ARCHIVO'}
             </span>
           )}
           <span
-            className="flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-black/65 text-white opacity-0 backdrop-blur-md transition-all duration-200 group-hover:opacity-100"
+            className="flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-black/70 text-white opacity-0 backdrop-blur-md transition-all duration-200 group-hover:opacity-100"
             style={{ borderColor: `${accentHex}70` }}
           >
             <Maximize2 className="h-3.5 w-3.5" />
@@ -178,13 +212,13 @@ export const ShaderImagePortal: React.FC<ShaderImagePortalProps> = ({
       </div>
 
       {showCaptionBar && (
-        <div className="relative z-10 flex items-start gap-2 border-t border-white/[0.08] bg-[#07090F]/95 px-3.5 py-2.5">
+        <div className="relative z-10 flex min-h-[3.75rem] flex-1 items-center gap-2.5 border-t border-white/[0.08] bg-[#070910]/95 px-3.5 py-2.5">
           <span
             aria-hidden="true"
-            className="mt-1.5 h-1 w-1 shrink-0 rounded-full opacity-75 transition-opacity group-hover:opacity-100"
+            className="h-1.5 w-1.5 shrink-0 rounded-full opacity-80 transition-opacity group-hover:opacity-100"
             style={{ backgroundColor: accentHex }}
           />
-          <p className="line-clamp-2 font-sans text-xs leading-relaxed text-zinc-400 transition-colors duration-200 group-hover:text-zinc-100">
+          <p className="line-clamp-2 font-sans text-xs leading-relaxed text-zinc-300 transition-colors duration-200 group-hover:text-white">
             {asset.caption[lang]}
           </p>
         </div>

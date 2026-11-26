@@ -13,6 +13,7 @@ import {
 import { PROFILE_DATA } from '../data/profileData'
 import { PROJECTS_DATA } from '../data/projectsData'
 import { Lang, MediaAsset, ProjectData } from '../types/portfolio'
+import { mediaUrl } from '../utils/mediaUrl'
 import { ShaderImagePortal } from './ShaderImagePortal'
 import { SoftwareIconBadge } from './SoftwareIconBadge'
 import { VideoPlayer } from './VideoPlayer'
@@ -151,7 +152,7 @@ export const ProjectChapter: React.FC<ProjectChapterProps> = ({
       ref={articleRef}
       id={`project-${project.slug}`}
       data-project-id={project.id}
-      className="relative scroll-mt-32 overflow-x-clip py-24 sm:py-32"
+      className="relative scroll-mt-[136px] overflow-x-clip py-20 sm:py-28"
     >
       {/* Crisp 1px architectural chapter divider with accent fade */}
       <div
@@ -191,7 +192,12 @@ export const ProjectChapter: React.FC<ProjectChapterProps> = ({
 
       <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-8 lg:px-12">
         {/* ======================== EDITORIAL EXHIBITION HEADER ======================== */}
-        <header className="mb-14 border-b border-white/[0.08] pb-10">
+        <header className="relative mb-14 rounded-2xl border-b border-white/[0.08] pb-10">
+          {/* Soft obsidian legibility vignette so metadata never washes out over fluid highlights */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -inset-x-4 -top-4 bottom-0 -z-10 rounded-2xl bg-[radial-gradient(ellipse_90%_85%_at_22%_45%,rgba(5,6,10,0.72)_0%,rgba(5,6,10,0.35)_55%,transparent_88%)]"
+          />
           {/* Architectural Metadata Rail */}
           <div className="mb-6 flex flex-wrap items-center gap-x-4 gap-y-2 font-mono text-[11px] tracking-[0.18em] uppercase">
             <span
@@ -227,14 +233,14 @@ export const ProjectChapter: React.FC<ProjectChapterProps> = ({
               {project.id === 'kane-no-hibiki' && project.titleLogos ? (
                 <div className="mb-5 flex flex-wrap items-center gap-6">
                   <img
-                    src={project.titleLogos.primary}
+                    src={mediaUrl(project.titleLogos.primary)}
                     alt="Kane no Hibiki"
                     decoding="async"
                     className="h-14 w-auto object-contain drop-shadow-[0_6px_24px_rgba(251,113,133,0.35)] sm:h-20"
                   />
                   {project.titleLogos.secondary && (
                     <img
-                      src={project.titleLogos.secondary}
+                      src={mediaUrl(project.titleLogos.secondary)}
                       alt="鐘の響き"
                       decoding="async"
                       className="h-12 w-auto object-contain opacity-90 sm:h-16"
@@ -244,14 +250,14 @@ export const ProjectChapter: React.FC<ProjectChapterProps> = ({
               ) : project.id === 'sogno' && project.titleLogos ? (
                 <div className="mb-5 flex flex-wrap items-center gap-5">
                   <img
-                    src={project.titleLogos.primary}
+                    src={mediaUrl(project.titleLogos.primary)}
                     alt="SOGNO"
                     decoding="async"
                     className="h-12 w-auto object-contain sm:h-[4.5rem]"
                   />
                   {project.titleLogos.secondary && (
                     <img
-                      src={project.titleLogos.secondary}
+                      src={mediaUrl(project.titleLogos.secondary)}
                       alt="SOGNO 2"
                       decoding="async"
                       className="h-14 w-auto object-contain sm:h-20"
@@ -261,7 +267,7 @@ export const ProjectChapter: React.FC<ProjectChapterProps> = ({
               ) : project.id === 'notas-y-colores' && project.titleLogos ? (
                 <div className="mb-5 flex flex-wrap items-center gap-5">
                   <img
-                    src={project.titleLogos.primary}
+                    src={mediaUrl(project.titleLogos.primary)}
                     alt="Notas & Colores"
                     decoding="async"
                     className="h-20 w-auto object-contain drop-shadow-[0_12px_30px_rgba(236,72,153,0.35)] sm:h-28"
@@ -273,14 +279,14 @@ export const ProjectChapter: React.FC<ProjectChapterProps> = ({
               ) : project.id === 'the-amazing-digital-circus-2' &&
                 project.titleLogos ? (
                 <img
-                  src={project.titleLogos.primary}
+                  src={mediaUrl(project.titleLogos.primary)}
                   alt="The Amazing Digital Circus 2"
                   decoding="async"
                   className="mb-5 h-20 w-auto object-contain drop-shadow-[0_12px_28px_rgba(239,68,68,0.35)] sm:h-32"
                 />
               ) : project.id === 'vestigio' && project.titleLogos ? (
                 <img
-                  src={project.titleLogos.primary}
+                  src={mediaUrl(project.titleLogos.primary)}
                   alt="ALFAR: Arqueologías del Barro"
                   decoding="async"
                   className="mb-5 h-16 w-auto object-contain drop-shadow-[0_10px_28px_rgba(245,158,11,0.3)] sm:h-24"
@@ -305,7 +311,7 @@ export const ProjectChapter: React.FC<ProjectChapterProps> = ({
                 {linkedAwards.map((aw) => (
                   <div
                     key={aw.id}
-                    className="inline-flex items-center gap-3 rounded-xl border border-[#2EFF7B]/30 bg-[#2EFF7B]/[0.06] px-4 py-2.5 backdrop-blur-md"
+                    className="inline-flex items-center gap-3 rounded-2xl border border-[#2EFF7B]/30 bg-[#070910]/85 px-4 py-3 backdrop-blur-xl"
                   >
                     <Award className="h-4 w-4 shrink-0 text-[#2EFF7B]" />
                     <div className="text-xs">
@@ -324,31 +330,39 @@ export const ProjectChapter: React.FC<ProjectChapterProps> = ({
         </header>
 
         {/* ======================== ASYMMETRIC OVERVIEW & COVER COMPOSITION ======================== */}
-        <div className="grid items-start gap-10 lg:grid-cols-12 lg:gap-12">
+        <div className="grid items-start gap-8 lg:grid-cols-12 lg:gap-10">
           {/* Editorial Overview & Technical Dossier */}
           <div
-            className={`min-w-0 space-y-8 lg:col-span-7 ${
+            className={`relative min-w-0 space-y-7 overflow-hidden rounded-2xl border border-white/[0.09] bg-[#070910]/85 p-6 backdrop-blur-xl sm:p-8 lg:col-span-7 ${
               isEvenOrder ? 'lg:order-2' : 'lg:order-1'
             }`}
           >
-            <div className="flex items-center justify-between border-b border-white/[0.08] pb-3">
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-x-6 top-0 h-px opacity-75"
+              style={{
+                background: `linear-gradient(90deg, transparent, ${project.theme.accentHex}88, transparent)`,
+              }}
+            />
+
+            <div className="flex items-center justify-between border-b border-white/[0.08] pb-3.5">
               <h3
                 className="font-mono text-[11px] font-bold tracking-[0.26em] uppercase"
                 style={{ color: project.theme.accentHex }}
               >
                 {lang === 'en' ? 'OVERVIEW' : 'VISIÓN GENERAL'}
               </h3>
-              <span className="font-mono text-[11px] text-zinc-500">
+              <span className="font-mono text-[11px] text-zinc-400">
                 EXHIBIT #{project.indexLabel}
               </span>
             </div>
 
-            <div className="space-y-5 text-base leading-[1.75] text-zinc-200 sm:text-[17.5px]">
+            <div className="space-y-4 text-base leading-[1.75] text-zinc-200 sm:text-[17px]">
               {project.overviewParagraphs.map((para, i) => (
                 <p
                   key={i}
                   className={
-                    i === 0 ? 'text-zinc-100 sm:text-[18.5px]' : 'text-zinc-300'
+                    i === 0 ? 'text-zinc-100 sm:text-[18px]' : 'text-zinc-300'
                   }
                 >
                   {para[lang]}
@@ -359,7 +373,7 @@ export const ProjectChapter: React.FC<ProjectChapterProps> = ({
             {/* Architectural Hairline Technical Spec Sheet */}
             <div className="grid gap-y-5 border-t border-white/[0.08] pt-6 sm:grid-cols-2 sm:gap-x-8">
               <div className="border-l border-white/15 pl-4">
-                <div className="mb-1 flex items-center gap-2 font-mono text-[10px] tracking-[0.2em] text-zinc-500 uppercase">
+                <div className="mb-1 flex items-center gap-2 font-mono text-[10px] tracking-[0.2em] text-zinc-400 uppercase">
                   <Layers
                     className="h-3.5 w-3.5"
                     style={{ color: project.theme.accentHex }}
@@ -375,7 +389,7 @@ export const ProjectChapter: React.FC<ProjectChapterProps> = ({
 
               {project.platforms && (
                 <div className="border-l border-white/15 pl-4">
-                  <div className="mb-1 flex items-center gap-2 font-mono text-[10px] tracking-[0.2em] text-zinc-500 uppercase">
+                  <div className="mb-1 flex items-center gap-2 font-mono text-[10px] tracking-[0.2em] text-zinc-400 uppercase">
                     <Monitor
                       className="h-3.5 w-3.5"
                       style={{ color: project.theme.secondaryHex }}
@@ -393,7 +407,7 @@ export const ProjectChapter: React.FC<ProjectChapterProps> = ({
                   project.platforms ? 'sm:col-span-2' : ''
                 }`}
               >
-                <div className="mb-1 flex items-center gap-2 font-mono text-[10px] tracking-[0.2em] text-zinc-500 uppercase">
+                <div className="mb-1 flex items-center gap-2 font-mono text-[10px] tracking-[0.2em] text-zinc-400 uppercase">
                   <Cpu
                     className="h-3.5 w-3.5"
                     style={{ color: project.theme.secondaryHex }}
@@ -410,7 +424,7 @@ export const ProjectChapter: React.FC<ProjectChapterProps> = ({
 
             {/* Software Studio Micro-Chips */}
             <div className="border-t border-white/[0.08] pt-5">
-              <p className="mb-3 font-mono text-[10px] font-semibold tracking-[0.24em] text-zinc-500 uppercase">
+              <p className="mb-3 font-mono text-[10px] font-semibold tracking-[0.24em] text-zinc-400 uppercase">
                 Software
               </p>
               <div className="flex flex-wrap gap-1.5">
@@ -429,14 +443,14 @@ export const ProjectChapter: React.FC<ProjectChapterProps> = ({
             }`}
           >
             <figure
-              className="group relative overflow-hidden rounded-2xl border border-white/[0.11] bg-[#07090F]"
+              className="group relative overflow-hidden rounded-2xl border border-white/[0.1] bg-[#070910]"
               style={{
                 boxShadow: `0 28px 80px -30px ${project.theme.glowRgba}`,
               }}
             >
               <div className="relative flex min-h-[340px] items-center justify-center overflow-hidden bg-[#05060A] p-4 sm:min-h-[440px]">
                 <img
-                  src={project.coverImage}
+                  src={mediaUrl(project.coverImage)}
                   alt=""
                   aria-hidden="true"
                   loading={project.order <= 2 ? 'eager' : 'lazy'}
@@ -444,14 +458,14 @@ export const ProjectChapter: React.FC<ProjectChapterProps> = ({
                   className="pointer-events-none absolute inset-0 h-full w-full scale-125 object-cover opacity-25 blur-2xl"
                 />
                 <img
-                  src={project.coverImage}
+                  src={mediaUrl(project.coverImage)}
                   alt={project.coverAlt[lang]}
                   loading={project.order <= 2 ? 'eager' : 'lazy'}
                   decoding="async"
-                  className="relative z-10 max-h-[480px] w-auto max-w-full rounded-lg object-contain shadow-2xl transition-transform duration-700 ease-out group-hover:scale-[1.02]"
+                  className="relative z-10 max-h-[480px] w-auto max-w-full rounded-xl object-contain shadow-2xl transition-transform duration-700 ease-out group-hover:scale-[1.02]"
                 />
               </div>
-              <figcaption className="relative z-10 flex items-center justify-between border-t border-white/[0.08] bg-[#07090F]/95 px-4 py-3">
+              <figcaption className="relative z-10 flex items-center justify-between border-t border-white/[0.08] bg-[#070910]/95 px-4 py-3">
                 <span className="font-mono text-[10px] tracking-[0.2em] text-zinc-400 uppercase">
                   {lang === 'en' ? 'OFFICIAL COVER KEY ART' : 'PORTADA OFICIAL'}
                 </span>
@@ -489,10 +503,10 @@ export const ProjectChapter: React.FC<ProjectChapterProps> = ({
         {/* ======================== TADC2 CHARACTER RIG CUTOUTS SHOWCASE ======================== */}
         {project.id === 'the-amazing-digital-circus-2' &&
           project.characterCutouts && (
-            <div className="mt-14 grid items-center gap-8 border-y border-white/10 bg-gradient-to-r from-red-500/[0.06] via-transparent to-fuchsia-500/[0.06] py-10 sm:grid-cols-3 sm:px-6">
+            <div className="mt-14 grid items-center gap-8 rounded-2xl border border-white/[0.09] bg-[#070910]/85 bg-gradient-to-r from-red-500/[0.06] via-[#070910]/85 to-fuchsia-500/[0.06] p-6 backdrop-blur-xl sm:grid-cols-3 sm:p-8">
               <div className="flex justify-center">
                 <img
-                  src={project.characterCutouts[0]}
+                  src={mediaUrl(project.characterCutouts[0])}
                   alt="Caine 3D Character Rig"
                   loading="lazy"
                   decoding="async"
@@ -516,7 +530,7 @@ export const ProjectChapter: React.FC<ProjectChapterProps> = ({
               </div>
               <div className="flex justify-center">
                 <img
-                  src={project.characterCutouts[1]}
+                  src={mediaUrl(project.characterCutouts[1])}
                   alt="Caine Close-Up 3D Rig"
                   loading="lazy"
                   decoding="async"
@@ -528,7 +542,7 @@ export const ProjectChapter: React.FC<ProjectChapterProps> = ({
 
         {/* ======================== EDITORIAL CHAPTERS & HIGHLIGHTS ======================== */}
         {project.chapters.length > 0 && (
-          <div className="mt-16 space-y-14">
+          <div className="mt-14 space-y-10">
             {project.chapters.map((chapter, chIndex) => {
               const chapterMedia = (chapter.mediaIds || [])
                 .map((id) => mediaMap.get(id))
@@ -542,9 +556,9 @@ export const ProjectChapter: React.FC<ProjectChapterProps> = ({
               return (
                 <section
                   key={chapter.id}
-                  className="border-t border-white/[0.08] pt-10"
+                  className="rounded-2xl border border-white/[0.09] bg-[#070910]/85 p-6 backdrop-blur-xl sm:p-8"
                 >
-                  <div className="mb-7 flex flex-wrap items-baseline justify-between gap-3">
+                  <div className="mb-7 flex flex-wrap items-baseline justify-between gap-3 border-b border-white/[0.08] pb-4">
                     <div className="flex items-center gap-3">
                       <span
                         className="font-mono text-xs font-bold"
@@ -561,14 +575,14 @@ export const ProjectChapter: React.FC<ProjectChapterProps> = ({
                   <div className="grid items-start gap-8 lg:grid-cols-12 lg:gap-10">
                     {/* Text & Highlights */}
                     <div
-                      className={`space-y-6 ${
+                      className={`space-y-5 ${
                         hasMedia ? 'lg:col-span-6' : 'lg:col-span-12'
                       } ${flipChapter ? 'lg:order-2' : 'lg:order-1'}`}
                     >
                       {chapter.body?.map((p, idx) => (
                         <p
                           key={idx}
-                          className="text-sm leading-[1.78] text-zinc-300 sm:text-[16px]"
+                          className="text-sm leading-[1.78] text-zinc-200 sm:text-[16px]"
                         >
                           {p[lang]}
                         </p>
@@ -579,7 +593,7 @@ export const ProjectChapter: React.FC<ProjectChapterProps> = ({
                           {chapter.highlights.map((hl, idx) => (
                             <div
                               key={idx}
-                              className="border-l-2 bg-white/[0.018] py-3 pr-4 pl-5"
+                              className="rounded-r-xl border-l-2 bg-white/[0.025] py-3 pr-4 pl-5"
                               style={{
                                 borderLeftColor: `${project.theme.accentHex}99`,
                               }}
@@ -629,7 +643,7 @@ export const ProjectChapter: React.FC<ProjectChapterProps> = ({
                         )}
                         {chapterMedia.length > 0 && (
                           <div
-                            className={`grid gap-4 ${
+                            className={`grid items-stretch gap-4 ${
                               chapterMedia.length === 1
                                 ? 'grid-cols-1'
                                 : 'sm:grid-cols-2'
@@ -641,16 +655,12 @@ export const ProjectChapter: React.FC<ProjectChapterProps> = ({
                                 asset={asset}
                                 lang={lang}
                                 accentHex={project.theme.accentHex}
+                                aspect={asset.aspect}
                                 onOpen={() => openAssetInFullGallery(asset.id)}
                                 priority={
                                   project.order === 1 &&
                                   chIndex === 0 &&
                                   mIdx === 0
-                                }
-                                className={
-                                  asset.aspect === 'portrait'
-                                    ? 'aspect-[3/4]'
-                                    : 'aspect-[16/10]'
                                 }
                               />
                             ))}
@@ -711,15 +721,22 @@ export const ProjectChapter: React.FC<ProjectChapterProps> = ({
               </span>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div
+              className={`grid items-stretch gap-4 sm:grid-cols-2 ${
+                remainingPdfStills.length === 2 ? '' : 'lg:grid-cols-3'
+              }`}
+            >
               {remainingPdfStills.map((asset, i) => {
                 const len = remainingPdfStills.length
+                const isLeadSpan =
+                  len !== 2 &&
+                  ((len === 5 && i === 0) || (i === 0 && len % 3 === 1))
                 const spanClass =
                   len === 5 && i === 0
-                    ? 'aspect-[16/9] sm:col-span-2'
-                    : i === 0 && len % 3 === 1
-                      ? 'aspect-[16/9] sm:col-span-2 lg:col-span-3'
-                      : 'aspect-[16/10]'
+                    ? 'sm:col-span-2'
+                    : len !== 2 && i === 0 && len % 3 === 1
+                      ? 'sm:col-span-2 lg:col-span-3'
+                      : ''
 
                 return (
                   <ShaderImagePortal
@@ -727,6 +744,7 @@ export const ProjectChapter: React.FC<ProjectChapterProps> = ({
                     asset={asset}
                     lang={lang}
                     accentHex={project.theme.accentHex}
+                    aspect={isLeadSpan ? 'wide' : asset.aspect}
                     onOpen={() => openAssetInFullGallery(asset.id)}
                     priority={project.order === 1 && i === 0}
                     className={spanClass}
@@ -740,7 +758,7 @@ export const ProjectChapter: React.FC<ProjectChapterProps> = ({
         {/* ======================== CLOSING QUOTE (PALENQUE P10) ======================== */}
         {project.closingQuote && (
           <blockquote
-            className="mt-16 border-y border-white/10 py-10 text-center font-sans text-xl font-medium tracking-tight text-zinc-100 sm:text-3xl"
+            className="mt-16 rounded-2xl border border-white/[0.09] bg-[#070910]/85 px-6 py-10 text-center font-sans text-xl font-medium tracking-tight text-zinc-100 backdrop-blur-xl sm:text-3xl"
             style={{
               borderColor: `${project.theme.accentHex}44`,
             }}
@@ -756,16 +774,16 @@ export const ProjectChapter: React.FC<ProjectChapterProps> = ({
               type="button"
               onClick={() => setShowArchiveExtras((v) => !v)}
               aria-expanded={showArchiveExtras}
-              className="group flex w-full flex-wrap items-center justify-between gap-4 rounded-xl border border-white/[0.08] bg-white/[0.02] px-4 py-3.5 text-left transition-colors duration-200 hover:border-white/20 hover:bg-white/[0.045] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2EFF7B] sm:px-5"
+              className="group flex w-full flex-wrap items-center justify-between gap-4 rounded-2xl border border-white/[0.09] bg-[#070910]/85 px-5 py-4 text-left backdrop-blur-xl transition-colors duration-200 hover:border-white/25 hover:bg-[#0B0E18]/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2EFF7B]"
             >
               <div className="flex flex-wrap items-center gap-3">
-                <span className="font-mono text-[11px] font-semibold tracking-[0.2em] text-zinc-300 uppercase">
+                <span className="font-mono text-[11px] font-semibold tracking-[0.2em] text-zinc-200 uppercase">
                   {lang === 'en'
                     ? 'PROJECT ARCHIVE · BTS / WIP'
                     : 'ARCHIVO DEL PROYECTO · BTS / WIP'}
                 </span>
                 <span
-                  className="rounded-md border px-2 py-0.5 font-mono text-[10px] font-bold"
+                  className="rounded-full border px-2.5 py-0.5 font-mono text-[10px] font-bold"
                   style={{
                     borderColor: `${project.theme.accentHex}55`,
                     backgroundColor: `${project.theme.accentHex}14`,
@@ -787,7 +805,7 @@ export const ProjectChapter: React.FC<ProjectChapterProps> = ({
                     {folderExtras.slice(0, 3).map((extra) => (
                       <img
                         key={extra.id}
-                        src={extra.src}
+                        src={mediaUrl(extra.src)}
                         alt=""
                         loading="lazy"
                         decoding="async"
@@ -817,19 +835,15 @@ export const ProjectChapter: React.FC<ProjectChapterProps> = ({
             </button>
 
             {showArchiveExtras && (
-              <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="mt-5 grid items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {folderExtras.map((asset) => (
                   <ShaderImagePortal
                     key={asset.id}
                     asset={asset}
                     lang={lang}
                     accentHex={project.theme.accentHex}
+                    aspect={asset.aspect}
                     onOpen={() => openAssetInFullGallery(asset.id)}
-                    className={
-                      asset.aspect === 'portrait'
-                        ? 'aspect-[3/4]'
-                        : 'aspect-[16/10]'
-                    }
                   />
                 ))}
               </div>

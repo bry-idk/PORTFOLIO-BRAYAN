@@ -5,6 +5,11 @@ import { afterEach, describe, expect, it } from 'vitest'
 import App from '../App'
 import { BEHANCE_EXACT_URL, PROFILE_DATA } from '../data/profileData'
 import { PROJECTS_DATA, SOFTWARE_META } from '../data/projectsData'
+import {
+  evaluateAirScrollFrame,
+  HandLandmarkPoint,
+  INITIAL_AIR_SCROLL_STATE,
+} from '../utils/handGestureScroll'
 
 afterEach(() => {
   window.localStorage.clear()
@@ -179,5 +184,170 @@ describe('Portfolio Interactive UI & Bilingual EN/ES Switcher', () => {
     const padD = screen.getByRole('button', { name: 'Play note D DO / C4' })
     fireEvent.click(padD)
     expect(screen.getByText('D · DO / C4')).toBeInTheDocument()
+  })
+
+  it('toggles optional MediaPipe gesture scroll HUD cleanly without forcing camera on boot', async () => {
+    render(<App />)
+
+    // Disabled by default (optional)
+    expect(
+      screen.queryByRole('complementary', {
+        name: /MediaPipe air gesture scroll controller/i,
+      })
+    ).not.toBeInTheDocument()
+
+    const toggleBtn = screen.getByRole('button', {
+      name: /Enable MediaPipe webcam gesture scroll/i,
+    })
+    expect(toggleBtn).toHaveAttribute('aria-pressed', 'false')
+
+    fireEvent.click(toggleBtn)
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('complementary', {
+          name: /MediaPipe air gesture scroll controller/i,
+        })
+      ).toBeInTheDocument()
+    })
+    expect(
+      screen.getByText(/Requires HTTPS\/localhost & webcam/i)
+    ).toBeInTheDocument()
+
+    // Live EN -> ES toggle keeps HUD mounted and translates all labels
+    fireEvent.click(screen.getByRole('button', { name: 'ES' }))
+    expect(screen.getByText(/Gestos Aire/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(/Requiere HTTPS\/localhost y webcam/i)
+    ).toBeInTheDocument()
+
+    const closeBtnEs = screen.getByRole('button', {
+      name: /Cerrar control por cámara/i,
+    })
+    fireEvent.click(closeBtnEs)
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole('complementary', {
+          name: /Controlador MediaPipe de scroll por gestos/i,
+        })
+      ).not.toBeInTheDocument()
+    })
+  })
+})
+
+function buildMockHandLandmarks(
+  centerY: number,
+  posture: 'open' | 'fist' | 'pinch'
+): HandLandmarkPoint[] {
+  const pts: HandLandmarkPoint[] = Array.from({ length: 21 }, () => ({
+    x: 0.5,
+    y: centerY,
+    z: 0,
+  }))
+  pts[0] = { x: 0.5, y: centerY + 0.05 } // wrist
+  pts[9] = { x: 0.5, y: centerY - 0.03 } // middle_mcp (palmScale = 0.08)
+
+  const pipY = centerY - 0.085
+  const extendedTipY = centerY - 0.175
+  const curledTipY = centerY - 0.025
+
+  // Finger bases & PIPs
+  pts[5] = { x: 0.45, y: centerY - 0.03 }
+  pts[6] = { x: 0.45, y: pipY }
+  pts[10] = { x: 0.5, y: pipY }
+  pts[13] = { x: 0.54, y: centerY - 0.025 }
+  pts[14] = { x: 0.54, y: pipY }
+  pts[17] = { x: 0.58, y: centerY - 0.015 }
+  pts[18] = { x: 0.58, y: pipY }
+
+  if (posture === 'open') {
+    pts[4] = { x: 0.36, y: centerY - 0.02 }
+    pts[8] = { x: 0.45, y: extendedTipY }
+    pts[12] = { x: 0.5, y: extendedTipY }
+    pts[16] = { x: 0.54, y: extendedTipY }
+    pts[20] = { x: 0.58, y: extendedTipY }
+  } else if (posture === 'fist') {
+    pts[4] = { x: 0.48, y: centerY - 0.02 }
+    pts[8] = { x: 0.46, y: curledTipY }
+    pts[12] = { x: 0.5, y: curledTipY }
+    pts[16] = { x: 0.54, y: curledTipY }
+    pts[20] = { x: 0.58, y: curledTipY }
+  } else {
+    // pinch: thumb tip & index tip together while middle/ring/pinky stay extended
+    pts[4] = { x: 0.46, y: centerY - 0.055 }
+    pts[8] = { x: 0.468, y: centerY - 0.055 }
+    pts[12] = { x: 0.5, y: extendedTipY }
+    pts[16] = { x: 0.54, y: extendedTipY }
+    pts[20] = { x: 0.58, y: extendedTipY }
+  }
+
+  return pts
+}
+
+describe('MediaPipe Air Gesture Scroll Math', () => {
+  it('detects empty frame, upper/hold/lower open-palm scroll zones, fist brake, and pinch drag', () => {
+    const emptyRes = evaluateAirScrollFrame({
+      landmarks: null,
+      prevState: INITIAL_AIR_SCROLL_STATE,
+      dtSeconds: 0.016,
+      viewportHeight: 900,
+    })
+    expect(emptyRes.gesture).toBe('none')
+    expect(emptyRes.deltaY).toBe(0)
+
+    const highOpen = evaluateAirScrollFrame({
+      landmarks: buildMockHandLandmarks(0.14, 'open'),
+      prevState: INITIAL_AIR_SCROLL_STATE,
+      dtSeconds: 0.032,
+      viewportHeight: 900,
+    })
+    expect(highOpen.gesture).toBe('open_up')
+    expect(highOpen.deltaY).toBeLessThan(0)
+
+    const neutralOpen = evaluateAirScrollFrame({
+      landmarks: buildMockHandLandmarks(0.5, 'open'),
+      prevState: INITIAL_AIR_SCROLL_STATE,
+      dtSeconds: 0.032,
+      viewportHeight: 900,
+    })
+    expect(neutralOpen.gesture).toBe('open_hold')
+    expect(neutralOpen.deltaY).toBe(0)
+
+    const lowOpen = evaluateAirScrollFrame({
+      landmarks: buildMockHandLandmarks(0.88, 'open'),
+      prevState: INITIAL_AIR_SCROLL_STATE,
+      dtSeconds: 0.032,
+      viewportHeight: 900,
+    })
+    expect(lowOpen.gesture).toBe('open_down')
+    expect(lowOpen.deltaY).toBeGreaterThan(0)
+
+    const fistBrake = evaluateAirScrollFrame({
+      landmarks: buildMockHandLandmarks(0.88, 'fist'),
+      prevState: lowOpen.nextState,
+      dtSeconds: 0.032,
+      viewportHeight: 900,
+    })
+    expect(fistBrake.gesture).toBe('fist')
+    expect(fistBrake.deltaY).toBe(0)
+
+    const pinchStart = evaluateAirScrollFrame({
+      landmarks: buildMockHandLandmarks(0.55, 'pinch'),
+      prevState: INITIAL_AIR_SCROLL_STATE,
+      dtSeconds: 0.032,
+      viewportHeight: 900,
+    })
+    expect(pinchStart.gesture).toBe('pinch')
+    expect(pinchStart.deltaY).toBe(0)
+
+    const pinchPullUp = evaluateAirScrollFrame({
+      landmarks: buildMockHandLandmarks(0.45, 'pinch'),
+      prevState: pinchStart.nextState,
+      dtSeconds: 0.032,
+      viewportHeight: 900,
+    })
+    expect(pinchPullUp.gesture).toBe('pinch')
+    expect(pinchPullUp.deltaY).toBeGreaterThan(0)
   })
 })

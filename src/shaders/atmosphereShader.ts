@@ -121,80 +121,127 @@ export const ATMOSPHERE_FRAGMENT_SHADER = /* glsl */ `
     vec2 toPtr = p - ptr;
     float dist = length(toPtr);
     float velNorm = clamp(uPointerSpeed, 0.0, 1.2);
-    float influence = exp(-dist * 3.2) * (0.14 + velNorm * 0.45);
+    float influence = exp(-dist * 3.1) * (0.16 + velNorm * 0.48);
     vec2 scrollOffset = vec2(0.0, -uScroll * 0.65);
 
     vec2 warpedUv =
       (p + scrollOffset) * 1.55 -
       normalize(toPtr + vec2(0.0001)) * influence -
-      fluidVel * 0.24 +
-      fluidGrad * 0.30;
+      fluidVel * 0.22 +
+      fluidGrad * 0.28;
 
-    // Prismatic RGB chromatic refraction split around mouse distortion & fluid wake
-    float chroma = 0.014 + influence * 0.16 + fluidEnergy * 0.045;
+    // Prismatic RGB chromatic refraction + finite-difference height gradient for specular wave lighting
+    float chroma = 0.012 + influence * 0.14 + fluidEnergy * 0.036;
     float fR = fluidField(warpedUv + vec2(chroma, 0.0), t);
     float fG = fluidField(warpedUv, t);
     float fB = fluidField(warpedUv - vec2(chroma, 0.0), t);
+    float fTop = fluidField(warpedUv + vec2(0.0, 0.018), t);
 
-    // Theme-reactive palette anchored to Portfolio AR's obsidian / violet / neon-emerald / silver DNA
-    vec3 colObsidian = vec3(0.02, 0.025, 0.032);
-    vec3 colDeepFluid = mix(uColorC, uColorB * 0.38, 0.42);
+    // Analytical liquid-surface normal from domain-warped fluid field + FBO ripple slope
+    vec2 fieldGrad = vec2((fR - fB) / max(chroma * 2.0, 0.01), (fTop - fG) / 0.018);
+    vec3 fluidNormal = normalize(vec3(
+      -(fieldGrad.x * 0.42 + fluidGrad.x * 2.2),
+      -(fieldGrad.y * 0.42 + fluidGrad.y * 2.2),
+      1.0
+    ));
+
+    // Luminance-normalized deep jewel base so bright project themes stay glassy & translucent, never opaque
+    vec3 rawDeepTint = mix(uColorB * 0.34, uColorC * 0.42, 0.48);
+    float deepLuma = dot(rawDeepTint, vec3(0.299, 0.587, 0.114));
+    vec3 colDeepFluid = rawDeepTint * min(1.0, 0.14 / max(deepLuma, 0.001));
+
+    vec3 colObsidian = vec3(0.014, 0.017, 0.026);
     vec3 colNeon = uColorA;
-    vec3 colSilver = mix(vec3(0.84, 0.96, 0.91), vec3(0.96, 0.97, 1.0), 0.22);
+    vec3 colAccent = mix(uColorA, uColorB, 0.5);
+    vec3 colSilver = mix(vec3(0.86, 0.96, 0.93), vec3(0.97, 0.98, 1.0), 0.30);
 
-    float nR = smoothstep(-0.35, 0.65, fR);
-    float nG = smoothstep(-0.35, 0.65, fG);
-    float nB = smoothstep(-0.35, 0.65, fB);
+    float nR = smoothstep(-0.22, 0.78, fR);
+    float nG = smoothstep(-0.22, 0.78, fG);
+    float nB = smoothstep(-0.18, 0.88, fB);
 
     float heroAmt = clamp(uHeroFocus, 0.0, 1.0);
-    // Full vivid Portfolio AR fluid in Hero; slightly calmer contrast inside project chapters for crisp reading
-    float intensityScale = mix(0.58, 1.0, heroAmt);
+    // Keep hero luminous and chapter backdrops crystal-clear translucent obsidian
+    float intensityScale = mix(0.54, 1.0, heroAmt);
 
+    // Deep translucent abyssal base (75%+ stays crystal-clear obsidian instead of opaque haze)
     vec3 color = colObsidian;
-    color = mix(color, colDeepFluid, smoothstep(0.15, 0.85, nB) * (0.76 * intensityScale));
+    color = mix(color, colDeepFluid, smoothstep(0.32, 0.96, nB) * (0.36 * intensityScale));
 
-    // Luminous topographic liquid-neon ridges + chromatic dispersion fringes
-    float ridgeR = pow(max(clamp(1.0 - abs(fR * 2.2), 0.0, 1.0), 0.0001), 4.0);
-    float ridgeG = pow(max(clamp(1.0 - abs(fG * 2.2), 0.0, 1.0), 0.0001), 4.0);
-    float ridgeB = pow(max(clamp(1.0 - abs(fB * 2.2), 0.0, 1.0), 0.0001), 4.0);
+    // Crisp translucent liquid-glass filaments & sharp specular ridges
+    float ridgeR = pow(max(clamp(1.0 - abs(fR * 2.4), 0.0, 1.0), 0.0001), 5.6);
+    float ridgeG = pow(max(clamp(1.0 - abs(fG * 2.4), 0.0, 1.0), 0.0001), 5.6);
+    float ridgeB = pow(max(clamp(1.0 - abs(fB * 2.4), 0.0, 1.0), 0.0001), 5.6);
+    float hairlineCrest = pow(max(clamp(1.0 - abs(fG * 2.55), 0.0, 1.0), 0.0001), 11.5);
 
-    float ridgeBoost = (0.36 + influence * 1.15 + fluidEnergy * 0.38 + uAmbientPulse * 0.16) * intensityScale;
+    float ridgeBoost = (0.26 + influence * 1.38 + fluidEnergy * 0.44 + uAmbientPulse * 0.18) * intensityScale;
     color += colNeon * ridgeG * ridgeBoost;
+    color += colSilver * hairlineCrest * (0.24 + influence * 0.65) * intensityScale;
 
-    // Subtle RGB chromatic dispersion edge glow along perturbed ridges
+    // Chromatic RGB dispersion fringes along liquid edges
     vec3 chromaFringe = vec3(
       max(ridgeR - ridgeG, 0.0),
       0.0,
       max(ridgeB - ridgeG, 0.0)
     );
-    color += mix(uColorB, colSilver, 0.35) * (chromaFringe.r + chromaFringe.b) * (0.28 + influence * 0.75) * intensityScale;
+    color += mix(uColorB, colSilver, 0.38) * (chromaFringe.r + chromaFringe.b) * (0.32 + influence * 0.78) * intensityScale;
 
-    // Silvery specular silk crests & FBO capillary caustic shimmer
-    float silverCrest = pow(max(clamp(nR * nG, 0.0, 1.0), 0.0001), 3.0);
-    color += colSilver * silverCrest * (0.22 + fluidRipple * 0.16) * intensityScale;
+    // 3-Point Studio Specular Lighting + Cursor Point Light across liquid surface normals
+    vec3 viewDir = normalize(vec3(-p * 0.25, 1.0));
+    vec3 studioKeyDir = normalize(vec3(0.55 + ptr.x * 0.25, 0.65 - ptr.y * 0.15, 0.72));
+    vec3 studioRimDir = normalize(vec3(-0.72, -0.35, 0.58));
+    vec3 cursorLightVec = vec3(ptr - p, 0.44);
+    vec3 cursorLightDir = normalize(cursorLightVec);
+
+    vec3 hKey = normalize(studioKeyDir + viewDir);
+    vec3 hRim = normalize(studioRimDir + viewDir);
+    vec3 hPtr = normalize(cursorLightDir + viewDir);
+
+    float specKey = pow(max(dot(fluidNormal, hKey), 0.0001), 30.0) * 0.34;
+    float specRim = pow(max(dot(fluidNormal, hRim), 0.0001), 20.0) * 0.22;
+    float ptrAtten = exp(-dist * 2.3);
+    float specPtr = pow(max(dot(fluidNormal, hPtr), 0.0001), 24.0) * ptrAtten * (0.58 + velNorm * 0.48);
+    float fluidFresnel = pow(max(1.0 - clamp(dot(fluidNormal, viewDir), 0.0, 1.0), 0.0001), 2.8);
+
+    color += mix(colSilver, colNeon, 0.34) * specKey * intensityScale;
+    color += uColorB * specRim * intensityScale;
+    color += mix(colSilver, colAccent, 0.45) * specPtr * intensityScale;
+    color += colAccent * fluidFresnel * (0.12 + fluidEnergy * 0.22) * intensityScale;
+
+    // Silvery caustic shimmer & FBO capillary wake
+    float silverCrest = pow(max(clamp(nR * nG, 0.0, 1.0), 0.0001), 3.8);
+    color += colSilver * silverCrest * (0.14 + fluidRipple * 0.22) * intensityScale;
 
     float gradMag = length(fluidGrad);
-    float causticWake = pow(max(clamp(gradMag * 4.8, 0.0, 1.0), 0.0001), 1.5);
-    color += mix(colNeon, colSilver, 0.4) * causticWake * (0.18 + fluidRipple * 0.24) * intensityScale;
+    float causticWake = pow(max(clamp(gradMag * 5.2, 0.0, 1.0), 0.0001), 1.6);
+    color += mix(colNeon, colSilver, 0.45) * causticWake * (0.26 + fluidRipple * 0.34) * intensityScale;
 
-    // Immediate luminous cursor / touch field glow
-    float touchGlow = exp(-dist * 4.5) * (0.22 + velNorm * 0.16);
-    color += colNeon * touchGlow * intensityScale;
+    // Subtle volumetric upper-right studio spotlight shafts (low density, zero cloudiness)
+    vec2 spotOrigin = vec2(0.48 * aspect + ptr.x * 0.06, 0.72);
+    vec2 toFrag = p - spotOrigin;
+    float spotAngle = atan(toFrag.y, toFrag.x);
+    float spotDist = length(toFrag);
+    float spotBand = pow(max(0.0001, cos((spotAngle + 2.18) * 3.0 + sin(t * 0.3) * 0.14)), 6.0);
+    float spotEnv = exp(-spotDist * 0.82) * smoothstep(-0.55 * aspect, 0.25 * aspect, p.x);
+    color += mix(colNeon, colSilver, 0.35) * spotBand * spotEnv * (0.075 + 0.045 * heroAmt);
 
-    // Cinema vignette matching Portfolio AR framing
-    float vig = smoothstep(1.25, 0.20, length((uv - 0.5) * vec2(1.15, 1.0)));
-    color *= mix(0.45, 1.0, vig);
+    // Cursor luminous illumination aura
+    float touchGlow = exp(-dist * 3.8) * (0.18 + velNorm * 0.18);
+    color += mix(colNeon, colSilver, 0.25) * touchGlow * intensityScale;
 
-    // Smooth ACES Filmic highlight roll-off so neon ridges stay vivid without harsh clipping
-    vec3 finalCol = acesFilm(color * 1.12);
+    // Cinema depth vignette
+    float vig = smoothstep(1.32, 0.22, length((uv - 0.5) * vec2(1.12, 1.0)));
+    color *= mix(0.48, 1.0, vig);
+
+    // Smooth ACES Filmic highlight roll-off
+    vec3 finalCol = acesFilm(color * 1.16);
 
     // Subtle editorial halftone dot modulation near periphery + fine organic grain
     vec2 halftoneCoord = gl_FragCoord.xy + fluidVel * 4.0;
     vec2 gridUv = fract(halftoneCoord / 14.0) - 0.5;
     float dotDist = length(gridUv);
-    float edgeMask = smoothstep(0.36, 0.86, length(uv - 0.5));
-    float halftone = smoothstep(0.14, 0.055, dotDist) * edgeMask * (0.028 + fluidRipple * 0.018);
-    float grain = (hash12(gl_FragCoord.xy + fract(uTime * 19.3) * 100.0) - 0.5) * 0.018;
+    float edgeMask = smoothstep(0.38, 0.88, length(uv - 0.5));
+    float halftone = smoothstep(0.14, 0.055, dotDist) * edgeMask * (0.024 + fluidRipple * 0.016);
+    float grain = (hash12(gl_FragCoord.xy + fract(uTime * 19.3) * 100.0) - 0.5) * 0.016;
 
     gl_FragColor = vec4(clamp(finalCol + vec3(halftone) + grain, 0.0, 1.0), 1.0);
   }
@@ -283,6 +330,7 @@ export const PRISM_FRAGMENT_SHADER = /* glsl */ `
   precision highp float;
 
   uniform float uTime;
+  uniform vec2 uMouse;
   uniform vec3 uColorA;
   uniform vec3 uColorB;
   uniform vec3 uColorC;
@@ -380,10 +428,10 @@ export const PRISM_FRAGMENT_SHADER = /* glsl */ `
     vec3 themeGradient = mix(uColorA, uColorB, clamp(fresnelBroad * 0.78 + (vDisplace * 2.2 + 0.5) * 0.42, 0.0, 1.0));
     vec3 iridescent = mix(themeGradient, mix(themeGradient, uColorC, 0.35) + thinFilm * 0.48, 0.54);
 
-    // Dual-lobe GGX Specular + Clearcoat across 3-Point Studio Lights
-    vec3 keyLight = normalize(vec3(2.5, 3.3, 3.8));
-    vec3 fillLight = normalize(vec3(-2.8, 0.8, 2.4));
-    vec3 rimLight = normalize(vec3(-2.6, -1.5, -2.0));
+    // Dual-lobe GGX Specular + Clearcoat across cursor-interactive 3-Point Studio Lights
+    vec3 keyLight = normalize(vec3(2.4 + (uMouse.x - 0.5) * 2.6, 3.2 - (uMouse.y - 0.5) * 1.8, 3.8));
+    vec3 fillLight = normalize(vec3(-2.8, 0.9, 2.4));
+    vec3 rimLight = normalize(vec3(-2.5, -1.4, -2.1));
 
     vec3 Hkey = normalize(keyLight + V);
     vec3 Hfill = normalize(fillLight + V);
