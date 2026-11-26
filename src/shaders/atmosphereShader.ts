@@ -1,3 +1,7 @@
+// ============================================================================
+// 1. VOLUMETRIC STUDIO ATMOSPHERE + IRIDESCENT FLUID CAUSTICS + ACES TONE MAP
+// ============================================================================
+
 export const ATMOSPHERE_VERTEX_SHADER = /* glsl */ `
   varying vec2 vUv;
   void main() {
@@ -25,7 +29,8 @@ export const ATMOSPHERE_FRAGMENT_SHADER = /* glsl */ `
   uniform float uHasFluid;
 
   float hash(vec2 p) {
-    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+    float result = fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+    return result;
   }
 
   float noise(vec2 p) {
@@ -36,7 +41,8 @@ export const ATMOSPHERE_FRAGMENT_SHADER = /* glsl */ `
     float b = hash(i + vec2(1.0, 0.0));
     float c = hash(i + vec2(0.0, 1.0));
     float d = hash(i + vec2(1.0, 1.0));
-    return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+    float result = mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+    return result;
   }
 
   float fbm(vec2 p) {
@@ -51,86 +57,161 @@ export const ATMOSPHERE_FRAGMENT_SHADER = /* glsl */ `
     return v;
   }
 
+  vec3 acesFilm(vec3 x) {
+    float a = 2.51;
+    float b = 0.03;
+    float c = 2.43;
+    float d = 0.59;
+    float e = 0.14;
+    vec3 result = clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);
+    return result;
+  }
+
   void main() {
     vec2 uv = vUv;
     float aspect = uResolution.x / max(uResolution.y, 1.0);
     vec2 p = (uv - 0.5) * vec2(aspect, 1.0);
     vec2 m = (uMouse - 0.5) * vec2(aspect, 1.0);
 
-    // Sample live ping-pong GPU fluid simulation + local gradient for optical refraction
+    // Central-difference fluid sampling for silky optical refraction normals & curl
+    vec2 stepUv = vec2(0.0042, 0.0042);
     vec4 fluidC = texture2D(uFluidTex, uv);
-    vec4 fluidR = texture2D(uFluidTex, clamp(uv + vec2(0.0045, 0.0), 0.0, 1.0));
-    vec4 fluidU = texture2D(uFluidTex, clamp(uv + vec2(0.0, 0.0045), 0.0, 1.0));
+    vec4 fluidL = texture2D(uFluidTex, clamp(uv - vec2(stepUv.x, 0.0), 0.0, 1.0));
+    vec4 fluidR = texture2D(uFluidTex, clamp(uv + vec2(stepUv.x, 0.0), 0.0, 1.0));
+    vec4 fluidB = texture2D(uFluidTex, clamp(uv - vec2(0.0, stepUv.y), 0.0, 1.0));
+    vec4 fluidT = texture2D(uFluidTex, clamp(uv + vec2(0.0, stepUv.y), 0.0, 1.0));
 
     vec2 fluidVel = (fluidC.rg * 2.0 - 1.0) * uHasFluid;
     float fluidEnergy = fluidC.b * uHasFluid;
     float fluidRipple = fluidC.a * uHasFluid;
 
     vec2 fluidGrad = vec2(
-      (fluidR.b - fluidC.b) + (fluidR.a - fluidC.a) * 1.4,
-      (fluidU.b - fluidC.b) + (fluidU.a - fluidC.a) * 1.4
+      (fluidR.b - fluidL.b) + (fluidR.a - fluidL.a) * 1.65,
+      (fluidT.b - fluidB.b) + (fluidT.a - fluidB.a) * 1.65
+    ) * 0.5 * uHasFluid;
+
+    float fluidCurl = (
+      ((fluidR.g - fluidL.g) - (fluidT.r - fluidB.r)) * 2.0
     ) * uHasFluid;
 
     float distMouse = length(p - m);
-    float mouseInfluence = exp(-distMouse * 3.1) * (0.22 + min(uPointerSpeed * 0.35, 0.42));
+    float mouseInfluence = exp(-distMouse * 2.85) * (0.26 + min(uPointerSpeed * 0.42, 0.52));
 
-    // Domain-warped organic studio atmosphere advected by the live fluid field
-    float t = uTime * 0.13 + uScroll * 1.35;
-    vec2 advectedP = p - fluidVel * 0.28 + fluidGrad * 0.42;
+    // Preserve razor-sharp left-side Hero typography contrast while letting center/right & cursor shine
+    float heroAmt = clamp(uHeroFocus, 0.0, 1.0);
+    float stageWeight = mix(
+      0.86,
+      mix(0.44, 1.12, smoothstep(-0.52 * aspect, 0.28 * aspect, p.x)),
+      heroAmt
+    );
+    float cursorStageBoost = exp(-distMouse * 2.4) * (0.45 + fluidEnergy * 0.55);
+    float lightAllowance = clamp(stageWeight + cursorStageBoost * 0.55, 0.36, 1.35);
+
+    // Domain-warped velvet studio atmosphere advected by live ping-pong fluid field
+    float t = uTime * 0.125 + uScroll * 1.4;
+    vec2 advectedP = p - fluidVel * 0.34 + fluidGrad * 0.52;
 
     vec2 q = vec2(
-      fbm(advectedP * 1.55 + vec2(t * 0.55, -t * 0.28)),
-      fbm(advectedP * 1.55 + vec2(-t * 0.36, t * 0.48) + vec2(5.2, 1.3))
+      fbm(advectedP * 1.52 + vec2(t * 0.52, -t * 0.28)),
+      fbm(advectedP * 1.52 + vec2(-t * 0.35, t * 0.46) + vec2(5.2, 1.3))
     );
 
     vec2 dir = normalize(p - m + vec2(0.0001));
-    vec2 warp = advectedP + q * 0.52 + dir * mouseInfluence * 0.12;
+    vec2 warp = advectedP + q * 0.54 + dir * mouseInfluence * 0.14;
 
-    // Chromatic dispersion across fluid refraction gradients (caustic split)
-    vec2 chromaOffset = fluidGrad * 0.65 + fluidVel * 0.045;
-    float fR = fbm((warp + chromaOffset) * 1.85 + vec2(t * 0.32));
-    float fG = fbm(warp * 1.85 + vec2(t * 0.32));
-    float fB = fbm((warp - chromaOffset) * 1.85 + vec2(t * 0.32));
-    float f2 = fbm(warp * 2.55 - q * 1.35 - vec2(t * 0.22));
+    // Chromatic dispersion across fluid refraction gradients (iridescent caustic split)
+    vec2 chromaOffset = fluidGrad * 0.92 + fluidVel * 0.068;
+    float fR = fbm((warp + chromaOffset) * 1.88 + vec2(t * 0.32));
+    float fG = fbm(warp * 1.88 + vec2(t * 0.32));
+    float fB = fbm((warp - chromaOffset) * 1.88 + vec2(t * 0.32));
+    float f2 = fbm(warp * 2.52 - q * 1.32 - vec2(t * 0.24));
 
-    // Slightly calmer backdrop intensity during deep reading chapters for maximum text contrast
-    float chapterCalm = mix(0.76, 1.0, clamp(uHeroFocus, 0.0, 1.0));
+    float chapterCalm = mix(0.74, 1.0, heroAmt);
 
-    // Deep obsidian studio backdrop
-    vec3 baseBg = vec3(0.020, 0.023, 0.039);
-    vec3 auraA = uColorA * smoothstep(0.32, 0.92, fG) * (0.21 * chapterCalm);
-    vec3 auraB = uColorB * smoothstep(0.38, 0.95, f2) * (0.19 * chapterCalm);
-    vec3 auraC = uColorC * smoothstep(0.45, 0.96, fG * f2 * 1.75) * (0.16 * chapterCalm);
+    // Deep cinema obsidian soundstage base + atmospheric depth fog
+    vec3 baseBg = vec3(0.015, 0.018, 0.032);
+    float horizonFog = smoothstep(0.62, -0.58, p.y) * (0.11 + 0.05 * heroAmt);
+    vec3 depthFogCol = mix(uColorC, uColorB, 0.32) * horizonFog * (0.55 + 0.45 * f2);
 
-    // Chromatic liquid caustics along advected fluid ripples & velocity crests
+    vec3 auraA = uColorA * smoothstep(0.30, 0.92, fG) * (0.20 * chapterCalm * lightAllowance);
+    vec3 auraB = uColorB * smoothstep(0.36, 0.95, f2) * (0.18 * chapterCalm * lightAllowance);
+    vec3 auraC = uColorC * smoothstep(0.42, 0.96, fG * f2 * 1.78) * (0.19 * chapterCalm);
+
+    // Volumetric Studio Light Shafts (diagonal gallery god-rays cutting through fBM mist)
+    vec2 rayOrigin = vec2(0.44 * aspect + (m.x * 0.08), 0.68);
+    vec2 toFrag = p - rayOrigin;
+    float rayAngle = atan(toFrag.y, toFrag.x);
+    float rayDist = length(toFrag);
+    float mistSample = fbm(vec2(rayAngle * 3.8 + t * 0.22, rayDist * 1.35 - t * 0.34));
+    float shaftBandA = pow(max(0.0001, cos((rayAngle + 2.18) * 3.2 + sin(t * 0.4) * 0.18)), 5.0);
+    float shaftBandB = pow(max(0.0001, cos((rayAngle + 1.82) * 5.0 - t * 0.16)), 7.0);
+    float shaftEnvelope = exp(-rayDist * 0.72) * smoothstep(-0.68 * aspect, 0.18 * aspect, p.x);
+    float volumetricMask = (shaftBandA * 0.72 + shaftBandB * 0.46) * (0.45 + 0.55 * mistSample) * shaftEnvelope;
+    vec3 volumetricShafts =
+      mix(uColorA, vec3(0.92, 0.96, 1.0), 0.35) * volumetricMask * (0.15 + 0.10 * heroAmt + uAmbientPulse * 0.08) +
+      uColorB * shaftBandB * shaftEnvelope * mistSample * 0.09;
+
+    // Lush iridescent fluid caustics & luminous velvet smoke trails
     float gradMag = length(fluidGrad);
+    float causticRidge = pow(max(clamp(gradMag * 5.6, 0.0, 1.0), 0.0001), 1.45);
     vec3 causticSplit = vec3(
-      smoothstep(0.46, 0.92, fR),
-      smoothstep(0.46, 0.92, fG),
-      smoothstep(0.46, 0.92, fB)
+      smoothstep(0.38, 0.88, fR),
+      smoothstep(0.38, 0.88, fG),
+      smoothstep(0.38, 0.88, fB)
     );
-    vec3 fluidTint = mix(uColorA, uColorB, clamp(fluidRipple * 1.15 + 0.25, 0.0, 1.0));
-    vec3 caustics =
-      (causticSplit * mix(fluidTint, uColorC, 0.35) * (fluidEnergy * 0.32 + fluidRipple * 0.28)) +
-      mix(uColorA, vec3(0.95, 0.97, 1.0), 0.35) * clamp(gradMag * 3.8, 0.0, 0.65) * (0.18 + uAmbientPulse * 0.14);
 
-    // Soft cursor luminous halo
-    vec3 cursorGlow = mix(uColorA, uColorB, 0.5) * exp(-distMouse * 4.0) * (0.13 + fluidEnergy * 0.08);
+    float iridPhase = 6.28318 * (fluidEnergy * 1.15 + fluidRipple * 0.95 + abs(fluidCurl) * 0.85 + uTime * 0.075);
+    vec3 iridSpectrum = 0.5 + 0.5 * cos(iridPhase + vec3(0.0, 2.094, 4.188));
+    vec3 fluidTint = mix(uColorA, uColorB, clamp(fluidRipple * 1.15 + 0.22, 0.0, 1.0));
+    vec3 velvetSmoke =
+      mix(fluidTint, mix(uColorC, iridSpectrum, 0.52), 0.38) *
+      (fluidEnergy * 0.48 + abs(fluidCurl) * 0.22) *
+      (0.55 + 0.45 * causticSplit);
 
-    // Subtle editorial halftone dot modulation near periphery (displaced gently by fluid ripple)
-    vec2 halftoneCoord = gl_FragCoord.xy + fluidVel * 4.0;
+    vec3 causticSpecular =
+      mix(mix(uColorA, iridSpectrum, 0.45), vec3(0.98, 0.99, 1.0), 0.48) *
+      causticRidge * (0.34 + fluidRipple * 0.42 + uAmbientPulse * 0.16);
+
+    vec3 caustics = (velvetSmoke + causticSpecular + causticSplit * fluidTint * fluidRipple * 0.32) * mix(0.65, 1.15, lightAllowance);
+
+    // Subtle cinema anamorphic bloom streak anchored behind the sculpture focal zone
+    vec2 focalCenter = vec2(mix(0.32, 0.22, heroAmt) * aspect, 0.03);
+    vec2 toFocal = p - focalCenter;
+    float anamorphicStreak =
+      exp(-abs(toFocal.y) * 12.5) * exp(-abs(toFocal.x) * 1.45) * (0.085 + 0.065 * heroAmt + uAmbientPulse * 0.07);
+    float cursorStreak =
+      exp(-abs(p.y - m.y) * 18.0) * exp(-abs(p.x - m.x) * 2.8) * (fluidEnergy * 0.14 + min(uPointerSpeed * 0.06, 0.09));
+    vec3 anamorphicBloom =
+      mix(uColorA, uColorB, 0.45) * anamorphicStreak +
+      mix(uColorB, vec3(0.95, 0.98, 1.0), 0.35) * cursorStreak;
+
+    // Soft responsive cursor luminous halo
+    vec3 cursorGlow =
+      mix(uColorA, uColorB, 0.5) * exp(-distMouse * 3.7) * (0.14 + fluidEnergy * 0.14 + min(uPointerSpeed * 0.08, 0.10));
+
+    // Combine linear HDR radiance -> cinema depth vignette -> ACES Filmic Tone Mapping
+    vec3 hdrCol = baseBg + depthFogCol + auraA + auraB + auraC + volumetricShafts + caustics + anamorphicBloom + cursorGlow;
+
+    float vignette = 1.0 - smoothstep(0.45, 1.38, length((uv - 0.5) * vec2(aspect * 0.86, 1.05))) * 0.46;
+    vec3 col = acesFilm(hdrCol * vignette * 1.12);
+
+    // Subtle editorial halftone dot modulation near periphery (displaced gently by fluid velocity)
+    vec2 halftoneCoord = gl_FragCoord.xy + fluidVel * 4.5;
     vec2 gridUv = fract(halftoneCoord / 14.0) - 0.5;
     float dotDist = length(gridUv);
-    float edgeMask = smoothstep(0.30, 0.80, length(uv - 0.5));
-    float halftone = smoothstep(0.14, 0.055, dotDist) * edgeMask * (0.04 + fluidRipple * 0.025);
+    float edgeMask = smoothstep(0.32, 0.82, length(uv - 0.5));
+    float halftone = smoothstep(0.14, 0.055, dotDist) * edgeMask * (0.034 + fluidRipple * 0.024);
 
-    // Organic fine editorial film grain
-    float grain = (hash(gl_FragCoord.xy + fract(uTime * 19.3) * 100.0) - 0.5) * 0.024;
+    // Organic fine editorial film grain (dithered post-tonemap)
+    float grain = (hash(gl_FragCoord.xy + fract(uTime * 19.3) * 100.0) - 0.5) * 0.020;
 
-    vec3 col = baseBg + auraA + auraB + auraC + caustics + cursorGlow + vec3(halftone) + grain;
-    gl_FragColor = vec4(col, 1.0);
+    gl_FragColor = vec4(clamp(col + vec3(halftone) + grain, 0.0, 1.0), 1.0);
   }
 `
+
+// ============================================================================
+// 2. HERO SCULPTURE: OPTICAL LIQUID OBSIDIAN & DICHROIC CRYSTAL (PBR + IBL)
+// ============================================================================
 
 export const PRISM_VERTEX_SHADER = /* glsl */ `
   uniform float uTime;
@@ -142,26 +223,30 @@ export const PRISM_VERTEX_SHADER = /* glsl */ `
   varying vec3 vWorldPos;
   varying float vDisplace;
   varying float vCrease;
+  varying float vCavity;
 
   float gyroid(vec3 p) {
-    return dot(sin(p), cos(p.yzx));
+    float result = dot(sin(p), cos(p.yzx));
+    return result;
   }
 
-  // Sculptural liquid-obsidian displacement field
+  // Sculptural liquid-obsidian & folded crystal displacement field
   float prismField(vec3 p, float t, vec2 mouseNdc, float pulse) {
-    float g1 = gyroid(p * 2.05 + vec3(t * 0.42, -t * 0.31, t * 0.26));
-    // Abs-folded secondary gyroid creates crisp architectural volcanic-glass ridges
-    float g2 = 1.0 - abs(gyroid(p * 3.65 - vec3(t * 0.52, t * 0.36, -t * 0.24)));
-    float mousePull = smoothstep(1.9, 0.0, length(mouseNdc - p.xy));
-    float scrollRipple = sin(p.y * 3.2 + uScroll * 5.0 - t * 0.9) * 0.035;
-    return (g1 * 0.135 + g2 * 0.065) + scrollRipple + mousePull * (0.075 + pulse * 0.045) * sin(t * 2.2 + p.y * 3.4);
+    float g1 = gyroid(p * 2.02 + vec3(t * 0.40, -t * 0.30, t * 0.25));
+    // Abs-folded secondary gyroid carves crisp volcanic-glass ridges & luminous cavities
+    float g2 = 1.0 - abs(gyroid(p * 3.55 - vec3(t * 0.48, t * 0.34, -t * 0.22)));
+    float g3 = gyroid(p * 5.2 + vec3(-t * 0.22, t * 0.38, t * 0.19)) * 0.018;
+    float mousePull = smoothstep(1.95, 0.0, length(mouseNdc - p.xy));
+    float scrollRipple = sin(p.y * 3.4 + uScroll * 5.4 - t * 0.85) * 0.036;
+    float result = (g1 * 0.145 + g2 * 0.072 + g3) + scrollRipple + mousePull * (0.082 + pulse * 0.05) * sin(t * 2.1 + p.y * 3.3);
+    return result;
   }
 
   void main() {
     vec3 pos = position;
     float radius = length(pos);
-    vec3 baseNormal = normalize(pos);
-    float t = uTime * 0.62;
+    vec3 baseNormal = normalize(pos + vec3(0.00001));
+    float t = uTime * 0.58;
     vec2 mouseNdc = (uMouse - 0.5) * 2.2;
 
     float d0 = prismField(pos, t, mouseNdc, uPulse);
@@ -172,7 +257,7 @@ export const PRISM_VERTEX_SHADER = /* glsl */ `
     vec3 tangent = normalize(cross(refAxis, baseNormal));
     vec3 bitangent = cross(baseNormal, tangent);
 
-    float eps = 0.022;
+    float eps = 0.020;
     vec3 baseT = normalize(pos + tangent * eps) * radius;
     vec3 baseB = normalize(pos + bitangent * eps) * radius;
 
@@ -185,19 +270,19 @@ export const PRISM_VERTEX_SHADER = /* glsl */ `
     vec3 pT = baseT + nT * dT;
     vec3 pB = baseB + nB * dB;
 
-    vec3 perturbedNormal = normalize(cross(pT - p0, pB - p0));
+    vec3 perturbedNormal = normalize(cross(pT - p0, pB - p0) + vec3(0.00001));
     if (dot(perturbedNormal, baseNormal) < 0.0) {
       perturbedNormal = -perturbedNormal;
     }
 
-    // Approximate surface curvature/crease highlight factor for obsidian rim glints
-    vCrease = clamp(abs(dT - d0) + abs(dB - d0), 0.0, 0.15) * 6.5;
+    // Separate raised volcanic-glass ridges (vCrease) from deep luminous folds (vCavity)
+    vCrease = clamp((abs(dT - d0) + abs(dB - d0)) * 7.2, 0.0, 1.0);
+    vCavity = smoothstep(0.05, -0.145, d0);
     vDisplace = d0;
 
     vec4 worldPosition = modelMatrix * vec4(p0, 1.0);
     vWorldPos = worldPosition.xyz;
-    // Uniform scale on sculpture makes upper-left 3x3 rotation+scale exact when normalized
-    vWorldNormal = normalize((modelMatrix * vec4(perturbedNormal, 0.0)).xyz);
+    vWorldNormal = normalize((modelMatrix * vec4(perturbedNormal, 0.0)).xyz + vec3(0.00001));
 
     gl_Position = projectionMatrix * viewMatrix * worldPosition;
   }
@@ -217,114 +302,604 @@ export const PRISM_FRAGMENT_SHADER = /* glsl */ `
   varying vec3 vWorldPos;
   varying float vDisplace;
   varying float vCrease;
+  varying float vCavity;
 
-  // Procedural gallery HDR softbox environment for refractive obsidian reflections
-  float studioEnv(vec3 dir, vec3 keyDir, vec3 rimDir) {
-    float horizon = smoothstep(-0.35, 0.65, dir.y);
-    float softboxA = pow(max(dot(dir, keyDir), 0.0), 18.0);
-    float softboxB = pow(max(dot(dir, rimDir), 0.0), 10.0) * 0.65;
-    float strip = exp(-abs(dir.y - 0.18 * sin(dir.x * 3.0)) * 9.0) * 0.45;
-    return horizon * 0.25 + softboxA + softboxB + strip;
+  vec3 acesFilm(vec3 x) {
+    float a = 2.51;
+    float b = 0.03;
+    float c = 2.43;
+    float d = 0.59;
+    float e = 0.14;
+    vec3 result = clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);
+    return result;
+  }
+
+  // Trowbridge-Reitz GGX normal distribution function
+  float ggxDistribution(float NdotH, float roughness) {
+    float a = roughness * roughness;
+    float a2 = a * a;
+    float denom = (NdotH * NdotH) * (a2 - 1.0) + 1.0;
+    float result = a2 / max(3.14159265 * denom * denom, 0.0001);
+    return result;
+  }
+
+  vec3 fresnelSchlick(float cosTheta, vec3 F0) {
+    float f = pow(max(1.0 - cosTheta, 0.0001), 5.0);
+    vec3 result = F0 + (1.0 - F0) * f;
+    return result;
+  }
+
+  // Analytical 3-Point Studio IBL + Softbox Environment Reflections
+  vec3 sampleStudioIBL(vec3 R, vec3 cA, vec3 cB, vec3 cC) {
+    // 1. Key overhead-right studio softbox (crisp rectangular specular panel)
+    vec3 keyDir = normalize(vec3(0.54, 0.68, 0.49));
+    float keyAlign = max(dot(R, keyDir), 0.0);
+    float keySoftbox = smoothstep(0.76, 0.96, keyAlign) * 1.45 + pow(max(keyAlign, 0.0001), 22.0) * 0.85;
+    vec3 keyCol = vec3(1.0, 0.985, 0.96) * keySoftbox;
+
+    // 2. Cool architectural fill panel (left-lower studio bounce)
+    vec3 fillDir = normalize(vec3(-0.76, 0.18, 0.62));
+    float fillAlign = max(dot(R, fillDir), 0.0);
+    float fillPanel = smoothstep(0.55, 0.90, fillAlign) * 0.65 + pow(max(fillAlign, 0.0001), 9.0) * 0.45;
+    vec3 fillCol = mix(cC, vec3(0.62, 0.84, 1.0), 0.55) * fillPanel;
+
+    // 3. Dramatic edge rim strip light
+    vec3 rimDir = normalize(vec3(-0.62, -0.45, -0.64));
+    float rimAlign = max(dot(R, rimDir), 0.0);
+    float rimStrip = pow(max(rimAlign, 0.0001), 12.0) * 1.05;
+    vec3 rimCol = mix(cA, cB, 0.45) * rimStrip;
+
+    // 4. Curved gallery horizon cyclorama specular band
+    float waveHorizon = sin(R.x * 3.4 + R.z * 2.1) * 0.14;
+    float horizonBand = exp(-abs(R.y - waveHorizon) * 11.0) * 0.72;
+    float upperDome = smoothstep(-0.25, 0.85, R.y) * 0.24;
+    vec3 horizonCol = mix(cB, vec3(0.88, 0.94, 1.0), 0.42) * horizonBand + mix(cC, vec3(0.18, 0.22, 0.34), 0.5) * upperDome;
+
+    vec3 result = keyCol + fillCol + rimCol + horizonCol;
+    return result;
   }
 
   void main() {
     vec3 N = normalize(vWorldNormal);
-    vec3 V = normalize(cameraPosition - vWorldPos);
-    float NdotV = clamp(dot(N, V), 0.0, 1.0);
+    vec3 V = normalize(cameraPosition - vWorldPos + vec3(0.00001));
+    float NdotV = clamp(dot(N, V), 0.001, 1.0);
 
-    float fresnel = pow(1.0 - NdotV, 2.75);
-    float razorRim = pow(1.0 - NdotV, 5.4);
+    float fresnelBroad = pow(max(1.0 - NdotV, 0.0001), 2.5);
+    float razorRim = pow(max(1.0 - NdotV, 0.0001), 5.0);
 
-    vec3 keyLight = normalize(vec3(2.4, 3.2, 3.6));
-    vec3 rimLight = normalize(vec3(-3.0, -1.2, 2.2));
-
-    // Thin-film RGB chromatic dispersion via slightly offset refractive/reflective rays
+    // Chromatic RGB dispersion via offset reflective/refractive environment rays
     vec3 reflDir = reflect(-V, N);
     vec3 refrR = refract(-V, N, 1.0 / 1.38);
-    vec3 refrG = refract(-V, N, 1.0 / 1.46);
-    vec3 refrB = refract(-V, N, 1.0 / 1.56);
+    vec3 refrG = refract(-V, N, 1.0 / 1.48);
+    vec3 refrB = refract(-V, N, 1.0 / 1.60);
 
-    // Fallback to reflection when total internal reflection occurs at grazing angles
-    vec3 dirR = length(refrR) > 0.001 ? mix(refrR, reflDir, fresnel) : reflDir;
-    vec3 dirG = length(refrG) > 0.001 ? mix(refrG, reflDir, fresnel) : reflDir;
-    vec3 dirB = length(refrB) > 0.001 ? mix(refrB, reflDir, fresnel) : reflDir;
+    float envMix = clamp(fresnelBroad * 0.82 + 0.24, 0.0, 1.0);
+    vec3 dirR = length(refrR) > 0.001 ? normalize(mix(refrR, reflDir, envMix)) : reflDir;
+    vec3 dirG = length(refrG) > 0.001 ? normalize(mix(refrG, reflDir, envMix)) : reflDir;
+    vec3 dirB = length(refrB) > 0.001 ? normalize(mix(refrB, reflDir, envMix)) : reflDir;
 
-    vec3 dispersedEnv = vec3(
-      studioEnv(normalize(dirR), keyLight, rimLight),
-      studioEnv(normalize(dirG), keyLight, rimLight),
-      studioEnv(normalize(dirB), keyLight, rimLight)
-    );
+    vec3 iblR = sampleStudioIBL(dirR, uColorA, uColorB, uColorC);
+    vec3 iblG = sampleStudioIBL(dirG, uColorA, uColorB, uColorC);
+    vec3 iblB = sampleStudioIBL(dirB, uColorA, uColorB, uColorC);
+    vec3 dispersedIBL = vec3(iblR.r, iblG.g, iblB.b);
 
-    // Thin-film interference spectral phase aligned with active theme palette
-    float phase = 6.28318 * (1.45 * NdotV + vDisplace * 2.8 + uTime * 0.09);
-    vec3 thinFilm = 0.5 + 0.5 * cos(phase + vec3(0.0, 2.094, 4.188));
-    vec3 themeBlend = mix(uColorA, uColorB, clamp(fresnel * 0.85 + (vDisplace * 2.0 + 0.5) * 0.35, 0.0, 1.0));
-    vec3 iridescent = mix(themeBlend, mix(themeBlend, uColorC, 0.45) + thinFilm * 0.28, 0.48);
+    // Physical Thin-Film Iridescent Interference (R/G/B optical path phase shift)
+    float filmThickness = 1.65 * NdotV + vDisplace * 3.4 + vCrease * 0.65 + uTime * 0.085;
+    vec3 thinFilm = 0.5 + 0.5 * cos(6.28318 * filmThickness + vec3(0.0, 2.094, 4.188));
+    vec3 themeGradient = mix(uColorA, uColorB, clamp(fresnelBroad * 0.78 + (vDisplace * 2.2 + 0.5) * 0.42, 0.0, 1.0));
+    vec3 iridescent = mix(themeGradient, mix(themeGradient, uColorC, 0.35) + thinFilm * 0.48, 0.54);
 
-    // Liquid obsidian deep volcanic-glass core
-    vec3 obsidianCore = vec3(0.024, 0.028, 0.048) + uColorC * 0.06;
+    // Dual-lobe GGX Specular + Clearcoat across 3-Point Studio Lights
+    vec3 keyLight = normalize(vec3(2.5, 3.3, 3.8));
+    vec3 fillLight = normalize(vec3(-2.8, 0.8, 2.4));
+    vec3 rimLight = normalize(vec3(-2.6, -1.5, -2.0));
 
-    // Sharp key & colored secondary Blinn-Phong speculars along recomputed folds
-    vec3 H1 = normalize(keyLight + V);
-    vec3 H2 = normalize(rimLight + V);
-    float specSharp = pow(max(dot(N, H1), 0.0), 96.0);
-    float specBroad = pow(max(dot(N, H1), 0.0), 18.0) * 0.25;
-    float specRim = pow(max(dot(N, H2), 0.0), 28.0) * 0.55;
+    vec3 Hkey = normalize(keyLight + V);
+    vec3 Hfill = normalize(fillLight + V);
+    vec3 Hrim = normalize(rimLight + V);
 
-    // Assemble sculptural obsidian surface + chromatic dispersion + razor crease glints
-    vec3 col = mix(obsidianCore, iridescent, clamp(fresnel * 0.86 + vCrease * 0.28 + 0.08, 0.0, 1.0));
-    col += dispersedEnv * mix(uColorA, uColorB, 0.5) * (0.42 + fresnel * 0.55);
-    col += vec3(0.95, 0.98, 1.0) * (specSharp * 0.95 + specBroad);
-    col += mix(uColorB, uColorA, 0.4) * (specRim + razorRim * (0.65 + uPulse * 0.35));
-    col += iridescent * vCrease * 0.22;
+    float NdotHKey = max(dot(N, Hkey), 0.0);
+    float NdotLKey = max(dot(N, keyLight), 0.0);
+    float NdotHFill = max(dot(N, Hfill), 0.0);
+    float NdotLFill = max(dot(N, fillLight), 0.0);
+    float NdotHRim = max(dot(N, Hrim), 0.0);
 
-    float alpha = clamp(0.58 + fresnel * 0.40, 0.0, 0.96) * clamp(uOpacity, 0.0, 1.0);
+    // Lobe 1: Razor-sharp polished obsidian Clearcoat (roughness 0.075)
+    float ccKey = ggxDistribution(NdotHKey, 0.075) * NdotLKey * 0.048;
+    float ccFill = ggxDistribution(NdotHFill, 0.11) * NdotLFill * 0.022;
+    vec3 clearcoatF = fresnelSchlick(NdotV, vec3(0.06));
+    vec3 clearcoatSpec = vec3(1.0, 0.99, 0.97) * ccKey * (0.65 + clearcoatF.r * 1.4) +
+                         mix(uColorC, vec3(0.76, 0.92, 1.0), 0.6) * ccFill;
+
+    // Lobe 2: Satin Liquid-Mercury Metallic Sheen (roughness 0.29)
+    float metKey = ggxDistribution(NdotHKey, 0.29) * NdotLKey * 0.36;
+    float metRim = ggxDistribution(NdotHRim, 0.24) * 0.42;
+    vec3 metallicF = fresnelSchlick(NdotV, mix(vec3(0.28), iridescent, 0.68));
+    vec3 satinMetallic = metallicF * metKey + mix(uColorB, uColorA, 0.38) * metRim;
+
+    // Liquid Obsidian dark chrome base (raised ridges gleam dark mercury; deep trenches glow)
+    float ridgeMask = clamp(1.0 - vCavity * 0.85, 0.15, 1.0);
+    vec3 obsidianBase = vec3(0.018, 0.021, 0.036) + uColorC * 0.05;
+
+    // Luminous Emissive Cavity Veins glowing inside deep sculptural folds
+    float veinWave = 0.68 + 0.32 * sin(vWorldPos.y * 4.4 - uTime * 2.0 + vDisplace * 10.5);
+    float safeCavity = max(clamp(vCavity, 0.0, 1.0), 0.0001);
+    float cavityStrength = pow(safeCavity, 1.65) * veinWave;
+    vec3 cavityColor = mix(uColorA, uColorB, clamp(0.35 + 0.5 * sin(vWorldPos.x * 2.5 + uTime * 0.9), 0.0, 1.0));
+    vec3 emissiveVeins = cavityColor * cavityStrength * (0.95 + uPulse * 0.55) +
+                         vec3(0.95, 0.98, 1.0) * pow(safeCavity, 3.6) * 0.38 * veinWave;
+
+    // Assemble HDR museum-grade optical obsidian surface
+    vec3 col = mix(obsidianBase, iridescent * 0.62, clamp(fresnelBroad * 0.62 + vCrease * 0.24, 0.0, 1.0));
+    col += dispersedIBL * mix(vec3(0.75, 0.82, 0.95), iridescent, 0.55) * (0.44 + fresnelBroad * 0.72) * ridgeMask;
+    col += clearcoatSpec * ridgeMask + satinMetallic;
+    col += emissiveVeins;
+    col += mix(uColorA, uColorB, 0.5) * razorRim * (0.85 + uPulse * 0.42);
+    col += thinFilm * vCrease * ridgeMask * 0.20;
+
+    // ACES Filmic Tone Mapping for silky cinema highlight roll-off
+    vec3 toneMapped = acesFilm(col * 1.05);
+
+    // Semi-translucent dark-glass center lets the nested inner crystalline core shimmer through
+    float alpha = clamp(0.60 + fresnelBroad * 0.36 + cavityStrength * 0.16, 0.0, 0.96) * clamp(uOpacity, 0.0, 1.0);
+    gl_FragColor = vec4(toneMapped, alpha);
+  }
+`
+
+// ============================================================================
+// 3. NESTED INNER CRYSTALLINE CORE (FACETED REFRACTIVE HEART + GEODESIC LATTICE)
+// ============================================================================
+
+export const CRYSTAL_CORE_VERTEX_SHADER = /* glsl */ `
+  uniform float uTime;
+  uniform float uPulse;
+
+  varying vec3 vWorldNormal;
+  varying vec3 vWorldPos;
+  varying vec3 vLocalPos;
+
+  void main() {
+    float breathe = 1.0 + sin(uTime * 1.6 + position.y * 2.4) * 0.025 + uPulse * 0.03;
+    vec3 p = position * breathe;
+    vLocalPos = p;
+    vec4 worldPos = modelMatrix * vec4(p, 1.0);
+    vWorldPos = worldPos.xyz;
+    vWorldNormal = normalize((modelMatrix * vec4(normal, 0.0)).xyz + vec3(0.00001));
+    gl_Position = projectionMatrix * viewMatrix * worldPos;
+  }
+`
+
+export const CRYSTAL_CORE_FRAGMENT_SHADER = /* glsl */ `
+  precision highp float;
+
+  uniform float uTime;
+  uniform vec3 uColorA;
+  uniform vec3 uColorB;
+  uniform vec3 uColorC;
+  uniform float uOpacity;
+  uniform float uPulse;
+  uniform float uWireMode;
+
+  varying vec3 vWorldNormal;
+  varying vec3 vWorldPos;
+  varying vec3 vLocalPos;
+
+  vec3 acesFilm(vec3 x) {
+    float a = 2.51;
+    float b = 0.03;
+    float c = 2.43;
+    float d = 0.59;
+    float e = 0.14;
+    vec3 result = clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);
+    return result;
+  }
+
+  void main() {
+    vec3 N = normalize(vWorldNormal);
+    vec3 V = normalize(cameraPosition - vWorldPos + vec3(0.00001));
+    float NdotV = abs(dot(N, V));
+    float fresnel = pow(max(1.0 - NdotV, 0.0001), 2.1);
+
+    float facetWave = 0.5 + 0.5 * sin(vLocalPos.y * 6.5 - uTime * 2.2 + vLocalPos.x * 4.0);
+    vec3 coreTint = mix(uColorA, uColorB, clamp(facetWave * 0.75 + fresnel * 0.35, 0.0, 1.0));
+    vec3 edgeHighlight = mix(coreTint, vec3(0.95, 0.98, 1.0), 0.45);
+
+    // Wireframe lattice mode glows sharply on edges; solid crystal mode glows softly inside
+    vec3 solidCol = mix(uColorC * 0.35, coreTint, 0.55 + fresnel * 0.45) * (0.45 + fresnel * 0.95 + uPulse * 0.35);
+    vec3 wireCol = edgeHighlight * (0.75 + 0.45 * facetWave + uPulse * 0.45);
+
+    vec3 col = acesFilm(mix(solidCol, wireCol, uWireMode));
+    float baseAlpha = mix(0.26 + fresnel * 0.42, 0.38 + fresnel * 0.44, uWireMode);
+    float alpha = clamp(baseAlpha, 0.0, 0.88) * clamp(uOpacity, 0.0, 1.0);
+
     gl_FragColor = vec4(col, alpha);
   }
 `
 
+// ============================================================================
+// 4. VOLUMETRIC ORBITAL HALO RINGS (FRESNEL LIGHT-RIBBONS + COMETS + TICKS)
+// ============================================================================
+
+export const HALO_RING_VERTEX_SHADER = /* glsl */ `
+  varying vec2 vUv;
+  varying vec3 vWorldNormal;
+  varying vec3 vWorldPos;
+
+  void main() {
+    vUv = uv;
+    vec4 worldPos = modelMatrix * vec4(position, 1.0);
+    vWorldPos = worldPos.xyz;
+    vWorldNormal = normalize((modelMatrix * vec4(normal, 0.0)).xyz + vec3(0.00001));
+    gl_Position = projectionMatrix * viewMatrix * worldPos;
+  }
+`
+
+export const HALO_RING_FRAGMENT_SHADER = /* glsl */ `
+  precision highp float;
+
+  uniform float uTime;
+  uniform vec3 uColorA;
+  uniform vec3 uColorB;
+  uniform vec3 uColorC;
+  uniform float uOpacity;
+  uniform float uPulse;
+  uniform float uScrollPhase;
+  uniform float uPhaseOffset;
+
+  varying vec2 vUv;
+  varying vec3 vWorldNormal;
+  varying vec3 vWorldPos;
+
+  vec3 acesFilm(vec3 x) {
+    float a = 2.51;
+    float b = 0.03;
+    float c = 2.43;
+    float d = 0.59;
+    float e = 0.14;
+    vec3 result = clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);
+    return result;
+  }
+
+  void main() {
+    vec3 N = normalize(vWorldNormal);
+    vec3 V = normalize(cameraPosition - vWorldPos + vec3(0.00001));
+    float NdotV = clamp(abs(dot(N, V)), 0.0, 1.0);
+
+    // Volumetric optical ribbon profile: glowing filament core + luminous Fresnel edge aura
+    float coreBeam = pow(max(NdotV, 0.0001), 0.72);
+    float edgeGlow = pow(max(1.0 - NdotV, 0.0001), 1.8) * 0.65;
+    float ribbonProfile = coreBeam * 0.78 + edgeGlow;
+
+    // Traveling luminous orbital comets racing along torus azimuth
+    float angleU = vUv.x;
+    float travel1 = fract(angleU - uTime * 0.14 - uScrollPhase * 0.12 + uPhaseOffset);
+    float travel2 = fract(angleU + uTime * 0.095 + uScrollPhase * 0.08 + uPhaseOffset + 0.52);
+
+    float cometHead1 = exp(-travel1 * 22.0);
+    float cometTail1 = exp(-travel1 * 4.4) * 0.68;
+    float comet1 = cometHead1 + cometTail1;
+
+    float cometHead2 = exp(-travel2 * 18.0) * 0.85;
+    float cometTail2 = exp(-travel2 * 5.2) * 0.45;
+    float comet2 = cometHead2 + cometTail2;
+
+    // Fine architectural dashed calibration ticks along orbital circumference
+    float fineTicks = smoothstep(0.58, 0.92, sin(angleU * 6.28318 * 56.0));
+    float macroArc = 0.55 + 0.45 * sin(angleU * 6.28318 * 4.0 + uPhaseOffset * 6.28318);
+    float baseTrack = 0.16 + fineTicks * 0.22 * macroArc;
+
+    float energy = (baseTrack + comet1 * 1.15 + comet2 * 0.78) * (1.0 + uPulse * 0.45);
+    vec3 baseTint = mix(uColorA, uColorB, 0.5 + 0.5 * sin(angleU * 6.28318 + uTime * 0.45 + uPhaseOffset * 3.14));
+    vec3 col = mix(baseTint, uColorC, 0.18) * energy * ribbonProfile;
+    col += vec3(0.96, 0.99, 1.0) * (cometHead1 * 1.1 + cometHead2 * 0.75) * coreBeam;
+
+    vec3 mapped = acesFilm(col);
+    float alpha = clamp((baseTrack * 0.65 + comet1 * 0.95 + comet2 * 0.68) * ribbonProfile, 0.0, 1.0) * clamp(uOpacity, 0.0, 1.0);
+
+    gl_FragColor = vec4(mapped, alpha);
+  }
+`
+
+// ============================================================================
+// 5. 3-TIER CINEMATIC GPU PARTICLE SYSTEM
+// ============================================================================
+
+// Tier 1: Curl-Noise Micro-Motes & Starlight Sparks + Tangential Cursor Vortex
 export const PARTICLES_VERTEX_SHADER = /* glsl */ `
   uniform float uTime;
   uniform vec2 uMouse;
+  uniform float uPointerSpeed;
+  uniform float uScroll;
   uniform float uPixelRatio;
   uniform float uOpacity;
 
   attribute float aScale;
   attribute float aPhase;
+  attribute vec3 aRandom;
 
   varying float vAlpha;
+  varying float vColorMix;
+  varying float vDof;
+  varying float vSparkle;
+
+  // Divergence-free 3D trigonometric curl flow field
+  vec3 curlFlow(vec3 p, float t) {
+    float fx = sin(p.y * 0.68 + t * 0.42) * cos(p.z * 0.62 - t * 0.31);
+    float fy = sin(p.z * 0.72 + t * 0.36) * cos(p.x * 0.58 + t * 0.28);
+    float fz = sin(p.x * 0.64 - t * 0.34) * cos(p.y * 0.66 + t * 0.25);
+    vec3 result = vec3(fx, fy, fz);
+    return result;
+  }
 
   void main() {
     vec3 p = position;
-    p.x += sin(uTime * 0.32 + aPhase) * 0.24;
-    p.y += cos(uTime * 0.26 + aPhase * 1.3) * 0.24;
-    p.z += sin(uTime * 0.20 + aPhase * 0.7) * 0.14;
+    float t = uTime * (0.45 + aRandom.y * 0.35) + aPhase;
 
-    vec2 mouseWorld = (uMouse - 0.5) * vec2(8.0, 5.0);
+    // 3D curl-noise volumetric drift + subtle vertical scroll parallax
+    vec3 flow = curlFlow(p * 0.55 + vec3(aPhase * 0.15), uTime * 0.55);
+    p += flow * (0.34 + aRandom.z * 0.22);
+    p.y += sin(t * 0.65) * 0.14 - uScroll * (0.42 + aRandom.y * 0.45);
+    // Wrap Y softly so starfield never empties on deep scroll
+    p.y = mod(p.y + 5.5, 11.0) - 5.5;
+
+    // Tangential cursor vortex swirl + soft radial cushion
+    vec2 mouseWorld = (uMouse - 0.5) * vec2(8.8, 5.4);
     vec2 diff = p.xy - mouseWorld;
-    float d = length(diff);
-    if (d < 1.9) {
-      p.xy += normalize(diff + vec2(0.0001)) * (1.9 - d) * 0.42;
+    float dist = length(diff);
+    float vortexRadius = 2.65;
+    if (dist < vortexRadius) {
+      float influence = (1.0 - dist / vortexRadius);
+      float smoothInf = influence * influence;
+      vec2 radialDir = diff / (dist + 0.04);
+      vec2 tangentDir = vec2(-radialDir.y, radialDir.x);
+      float swirlStrength = 0.58 + min(uPointerSpeed * 0.85, 1.15);
+      p.xy += tangentDir * smoothInf * swirlStrength;
+      p.xy += radialDir * smoothInf * (0.28 + min(uPointerSpeed * 0.22, 0.35));
     }
 
     vec4 mvPos = modelViewMatrix * vec4(p, 1.0);
-    gl_PointSize = aScale * uPixelRatio * (17.0 / max(-mvPos.z, 1.0));
-    vAlpha = smoothstep(10.0, 1.5, -mvPos.z) * (0.32 + 0.42 * sin(uTime + aPhase)) * uOpacity;
+    float camDist = max(-mvPos.z, 1.0);
+
+    // Depth-of-field attenuation relative to focal plane at z ~ 5.4
+    float dof = clamp(abs(camDist - 5.4) * 0.22, 0.0, 1.0);
+    vDof = dof;
+
+    float twinkle = 0.48 + 0.52 * sin(uTime * (1.8 + aRandom.y * 2.4) + aPhase * 3.1);
+    vSparkle = aRandom.z * twinkle;
+    vColorMix = aRandom.x;
+
+    float pointSize = aScale * (1.0 + dof * 0.65) * uPixelRatio * (15.5 / camDist);
+    gl_PointSize = clamp(pointSize, 1.2, 34.0 * uPixelRatio);
+
+    float depthFade = smoothstep(11.5, 2.2, camDist) * smoothstep(0.6, 1.8, camDist);
+    float dofAlpha = mix(1.0, 0.52, dof);
+    vAlpha = depthFade * dofAlpha * (0.24 + 0.62 * twinkle) * uOpacity;
+
     gl_Position = projectionMatrix * mvPos;
   }
 `
 
 export const PARTICLES_FRAGMENT_SHADER = /* glsl */ `
   precision highp float;
+
   uniform vec3 uColorA;
   uniform vec3 uColorB;
+  uniform vec3 uColorC;
+
   varying float vAlpha;
+  varying float vColorMix;
+  varying float vDof;
+  varying float vSparkle;
 
   void main() {
-    float d = length(gl_PointCoord - vec2(0.5));
-    if (d > 0.5) discard;
-    float glow = smoothstep(0.5, 0.04, d);
-    vec3 col = mix(uColorA, uColorB, gl_PointCoord.x);
-    gl_FragColor = vec4(col, glow * vAlpha);
+    vec2 uv = gl_PointCoord - vec2(0.5);
+    float d = length(uv);
+
+    // Softness scales with depth-of-field blur
+    float coreSoftness = mix(0.05, 0.26, vDof);
+    float disc = smoothstep(0.5, coreSoftness, d);
+    float hotCore = exp(-d * mix(9.5, 4.8, vDof));
+
+    // Crisp 4-point starlight diffraction cross on brightest in-focus sparks
+    float starAxisH = exp(-abs(uv.y) * 24.0) * exp(-abs(uv.x) * 6.5);
+    float starAxisV = exp(-abs(uv.x) * 24.0) * exp(-abs(uv.y) * 6.5);
+    float starCross = (starAxisH + starAxisV) * smoothstep(0.55, 0.95, vSparkle) * (1.0 - vDof * 0.85) * 0.65;
+
+    // Chromatic shimmer across active theme palette + starlight white core
+    vec3 themeCol = mix(uColorA, uColorB, clamp(vColorMix + uv.x * 0.35, 0.0, 1.0));
+    themeCol = mix(themeCol, uColorC, 0.22 * (1.0 - vSparkle));
+    vec3 finalCol = mix(themeCol, vec3(0.97, 0.99, 1.0), clamp(hotCore * 0.62 + starCross * 0.5, 0.0, 0.85));
+
+    float mask = clamp(disc * 0.68 + hotCore * 0.55 + starCross, 0.0, 1.0) * smoothstep(0.5, 0.44, d);
+    gl_FragColor = vec4(finalCol, mask * vAlpha);
+  }
+`
+
+// Tier 2: Orbital Sculpture Embers (Magnetic Torus / Helical Field Lines)
+export const ORBIT_EMBERS_VERTEX_SHADER = /* glsl */ `
+  uniform float uTime;
+  uniform float uScrollPhase;
+  uniform float uPulse;
+  uniform vec3 uSculpturePos;
+  uniform float uSculptureScale;
+  uniform float uPixelRatio;
+  uniform float uOpacity;
+
+  attribute float aScale;
+  attribute float aPhase;
+  attribute vec3 aRandom;
+
+  varying float vAlpha;
+  varying float vColorMix;
+  varying float vHeat;
+
+  void main() {
+    // position stores parametric orbital coordinates: x = majorRadius, y = baseAngle, z = tiltAngle
+    float majorR = position.x;
+    float baseAngle = position.y;
+    float tilt = position.z;
+
+    float speed = (0.34 + aRandom.x * 0.42) * (1.0 + uPulse * 0.28);
+    float theta = baseAngle + uTime * speed + uScrollPhase * (0.48 + aRandom.x * 0.35);
+    float helicalPhi = theta * 2.0 + aPhase;
+
+    // Magnetic torus + helical field-line path around the liquid-obsidian sculpture
+    float minorR = 0.22 + aRandom.y * 0.38;
+    float r = majorR + cos(helicalPhi) * minorR;
+    vec3 localPos = vec3(
+      cos(theta) * r,
+      sin(helicalPhi) * minorR * 1.15,
+      sin(theta) * r
+    );
+
+    // Rotate orbital plane by per-ember inclination tilt
+    float ct = cos(tilt);
+    float st = sin(tilt);
+    vec3 tiltedPos = vec3(
+      localPos.x,
+      localPos.y * ct - localPos.z * st,
+      localPos.y * st + localPos.z * ct
+    );
+
+    // Secondary slow yaw precession
+    float yaw = aPhase * 0.45 + uTime * 0.08;
+    float cy = cos(yaw);
+    float sy = sin(yaw);
+    vec3 orbPos = vec3(
+      tiltedPos.x * cy - tiltedPos.z * sy,
+      tiltedPos.y,
+      tiltedPos.x * sy + tiltedPos.z * cy
+    );
+
+    vec3 worldPos = uSculpturePos + orbPos * uSculptureScale;
+    vec4 mvPos = modelViewMatrix * vec4(worldPos, 1.0);
+    float camDist = max(-mvPos.z, 1.0);
+
+    float pulseGlow = 0.55 + 0.45 * sin(uTime * 2.8 + aPhase * 4.0);
+    vHeat = clamp(pulseGlow + uPulse * 0.35, 0.0, 1.0);
+    vColorMix = aRandom.z;
+
+    float size = aScale * uSculptureScale * uPixelRatio * (19.0 / camDist);
+    gl_PointSize = clamp(size, 1.5, 36.0 * uPixelRatio);
+
+    // Subtle depth fade when ember passes behind the sculpture center
+    float frontBoost = smoothstep(-2.2, 1.4, orbPos.z);
+    vAlpha = (0.28 + 0.72 * frontBoost) * (0.42 + 0.58 * pulseGlow) * uOpacity;
+
+    gl_Position = projectionMatrix * mvPos;
+  }
+`
+
+export const ORBIT_EMBERS_FRAGMENT_SHADER = /* glsl */ `
+  precision highp float;
+
+  uniform vec3 uColorA;
+  uniform vec3 uColorB;
+  uniform vec3 uColorC;
+
+  varying float vAlpha;
+  varying float vColorMix;
+  varying float vHeat;
+
+  void main() {
+    vec2 uv = gl_PointCoord - vec2(0.5);
+    float d = length(uv);
+
+    float core = exp(-d * 8.2);
+    float corona = smoothstep(0.5, 0.06, d) * 0.52;
+
+    vec3 emberBase = mix(uColorA, uColorB, vColorMix);
+    emberBase = mix(emberBase, uColorC, 0.16);
+    vec3 col = mix(emberBase, vec3(1.0, 0.98, 0.94), clamp(core * 0.75 * vHeat, 0.0, 0.85));
+
+    float mask = clamp(core + corona, 0.0, 1.0) * smoothstep(0.5, 0.42, d);
+    gl_FragColor = vec4(col, mask * vAlpha);
+  }
+`
+
+// Tier 3: Cinematic Optical Aperture Bokeh Orbs (Foreground & Deep Background)
+export const BOKEH_VERTEX_SHADER = /* glsl */ `
+  uniform float uTime;
+  uniform vec2 uMouse;
+  uniform float uScroll;
+  uniform float uPixelRatio;
+  uniform float uOpacity;
+
+  attribute float aScale;
+  attribute float aPhase;
+  attribute vec3 aRandom;
+
+  varying float vAlpha;
+  varying float vColorMix;
+  varying float vRingWeight;
+
+  void main() {
+    vec3 p = position;
+    float depthWeight = aRandom.y;
+
+    // Slow dreamy cinema drift + depth-weighted mouse & scroll parallax
+    p.x += sin(uTime * 0.16 + aPhase) * 0.45 + (uMouse.x - 0.5) * (0.55 + depthWeight * 0.95);
+    p.y += cos(uTime * 0.13 + aPhase * 1.2) * 0.38 - (uMouse.y - 0.5) * (0.42 + depthWeight * 0.75);
+    p.y -= uScroll * (0.55 + depthWeight * 1.15);
+    p.y = mod(p.y + 6.5, 13.0) - 6.5;
+
+    vec4 mvPos = modelViewMatrix * vec4(p, 1.0);
+    float camDist = max(-mvPos.z, 1.2);
+
+    float breathe = 0.72 + 0.28 * sin(uTime * 0.65 + aPhase);
+    float pointSize = aScale * uPixelRatio * (52.0 / camDist);
+    gl_PointSize = clamp(pointSize, 16.0 * uPixelRatio, 136.0 * uPixelRatio);
+
+    vColorMix = aRandom.x;
+    vRingWeight = aRandom.z;
+    vAlpha = breathe * mix(0.065, 0.125, depthWeight) * uOpacity;
+
+    gl_Position = projectionMatrix * mvPos;
+  }
+`
+
+export const BOKEH_FRAGMENT_SHADER = /* glsl */ `
+  precision highp float;
+
+  uniform vec3 uColorA;
+  uniform vec3 uColorB;
+  uniform vec3 uColorC;
+
+  varying float vAlpha;
+  varying float vColorMix;
+  varying float vRingWeight;
+
+  void main() {
+    vec2 uv = gl_PointCoord - vec2(0.5);
+    float r = length(uv);
+
+    // Realistic optical aperture bokeh with spherical-aberration ring edge & chromatic R/B dispersion
+    float discR = smoothstep(0.49, 0.41, r - 0.014);
+    float discG = smoothstep(0.49, 0.41, r);
+    float discB = smoothstep(0.49, 0.41, r + 0.014);
+
+    float dRingR = (r - 0.375) / 0.055;
+    float dRingG = (r - 0.362) / 0.055;
+    float dRingB = (r - 0.348) / 0.055;
+    float ringR = exp(-(dRingR * dRingR));
+    float ringG = exp(-(dRingG * dRingG));
+    float ringB = exp(-(dRingB * dRingB));
+
+    float interior = smoothstep(0.46, 0.05, r) * 0.42;
+    float ringStrength = mix(0.32, 0.72, vRingWeight);
+
+    vec3 apertureProfile = vec3(
+      discR * (interior + ringR * ringStrength),
+      discG * (interior + ringG * ringStrength),
+      discB * (interior + ringB * ringStrength)
+    );
+
+    vec3 warmCoolTint = mix(uColorA, uColorB, vColorMix);
+    warmCoolTint = mix(warmCoolTint, uColorC, 0.26 * (1.0 - vColorMix));
+
+    vec3 col = warmCoolTint * apertureProfile * 1.35;
+    float alpha = max(apertureProfile.r, max(apertureProfile.g, apertureProfile.b)) * vAlpha;
+
+    gl_FragColor = vec4(col, alpha);
   }
 `

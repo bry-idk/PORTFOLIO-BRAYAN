@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import {
-  LAB_FRAGMENT_SHADER,
+  getLabFragmentShader,
   LAB_VERTEX_SHADER,
 } from '../../shaders/projectLabShaders'
 import { Lang, ProjectData } from '../../types/portfolio'
@@ -148,6 +148,7 @@ interface LabWebGLRuntime {
     uMix: { value: number }
     uTime: { value: number }
     uMouse: { value: THREE.Vector2 }
+    uPointerVel: { value: THREE.Vector2 }
     uResolution: { value: THREE.Vector2 }
     uMode: { value: number }
     uParamA: { value: number }
@@ -344,6 +345,7 @@ export const InteractiveProjectLab: React.FC<InteractiveProjectLabProps> = ({
       uMix: { value: 1 },
       uTime: { value: 0 },
       uMouse: { value: new THREE.Vector2(0.5, 0.5) },
+      uPointerVel: { value: new THREE.Vector2(0, 0) },
       uResolution: { value: new THREE.Vector2(width, height) },
       uMode: { value: MODE_INDEX[mode] },
       uParamA: { value: stateRef.current.paramA },
@@ -353,7 +355,7 @@ export const InteractiveProjectLab: React.FC<InteractiveProjectLabProps> = ({
     const geometry = new THREE.PlaneGeometry(2, 2)
     const material = new THREE.ShaderMaterial({
       vertexShader: LAB_VERTEX_SHADER,
-      fragmentShader: LAB_FRAGMENT_SHADER,
+      fragmentShader: getLabFragmentShader(MODE_INDEX[mode]),
       uniforms,
       depthTest: false,
       depthWrite: false,
@@ -372,8 +374,10 @@ export const InteractiveProjectLab: React.FC<InteractiveProjectLabProps> = ({
     }
     runtimeRef.current = runtime
 
-    // Hoisted scratch Vector2: zero per-frame GC allocations
+    // Hoisted scratch Vector2 instances: strictly zero per-frame GC allocations
     const targetMouse = new THREE.Vector2(0.5, 0.5)
+    const prevMouse = new THREE.Vector2(0.5, 0.5)
+    const instantVel = new THREE.Vector2(0, 0)
     const clock = new THREE.Clock()
 
     const renderLoop = () => {
@@ -383,14 +387,27 @@ export const InteractiveProjectLab: React.FC<InteractiveProjectLabProps> = ({
       }
 
       const dt = Math.min(clock.getDelta(), 0.05)
+      const safeDt = Math.max(dt, 0.008)
       uniforms.uTime.value += dt
 
+      // Frame-rate independent smooth pointer inertia & velocity tracking
+      prevMouse.copy(uniforms.uMouse.value)
       targetMouse.set(stateRef.current.mouseX, 1.0 - stateRef.current.mouseY)
-      uniforms.uMouse.value.lerp(targetMouse, 0.14)
+      const pointerLerp = 1 - Math.exp(-10.5 * dt)
+      uniforms.uMouse.value.lerp(targetMouse, pointerLerp)
+
+      instantVel
+        .subVectors(uniforms.uMouse.value, prevMouse)
+        .divideScalar(safeDt)
+        .clampLength(0, 3.0)
+      const velLerp = 1 - Math.exp(-8.5 * dt)
+      uniforms.uPointerVel.value.lerp(instantVel, velLerp)
+
+      const paramLerp = 1 - Math.exp(-9.0 * dt)
       uniforms.uParamA.value = THREE.MathUtils.lerp(
         uniforms.uParamA.value,
         stateRef.current.paramA,
-        0.12
+        paramLerp
       )
 
       // Smooth 350ms cubic ease-out preset crossfade + automatic old texture disposal
@@ -567,6 +584,18 @@ export const InteractiveProjectLab: React.FC<InteractiveProjectLabProps> = ({
     stateRef.current.mouseX = x
     stateRef.current.mouseY = y
 
+    // Imperatively update CSS rim-light coordinates (zero React re-renders)
+    if (containerRef.current) {
+      containerRef.current.style.setProperty(
+        '--lab-glow-x',
+        `${(x * 100).toFixed(1)}%`
+      )
+      containerRef.current.style.setProperty(
+        '--lab-glow-y',
+        `${(y * 100).toFixed(1)}%`
+      )
+    }
+
     // For Kane no Hibiki, horizontal position simulates ultrasonic foot-traffic sensor.
     // Update ref immediately for 60fps shader smoothness; throttle React HUD state sync.
     if (mode === 'kane') {
@@ -589,6 +618,13 @@ export const InteractiveProjectLab: React.FC<InteractiveProjectLabProps> = ({
     stateRef.current.mouseX = 0.5
     stateRef.current.mouseY = 0.5
     stateRef.current.paramA = defaultParamA
+    if (runtimeRef.current) {
+      runtimeRef.current.uniforms.uPointerVel.value.set(0, 0)
+    }
+    if (containerRef.current) {
+      containerRef.current.style.setProperty('--lab-glow-x', '50%')
+      containerRef.current.style.setProperty('--lab-glow-y', '50%')
+    }
     setParamA(defaultParamA)
     setComboStreak(0)
   }
@@ -602,18 +638,43 @@ export const InteractiveProjectLab: React.FC<InteractiveProjectLabProps> = ({
   return (
     <div
       ref={containerRef}
-      className="relative overflow-hidden rounded-3xl border border-white/10 bg-[#0A0C13]/90 p-5 shadow-2xl backdrop-blur-xl sm:p-6"
-      style={{
-        boxShadow: `0 24px 80px -24px ${project.theme.glowRgba}`,
-      }}
+      className="group relative overflow-hidden rounded-3xl border border-white/10 bg-[#0A0C13]/90 p-5 shadow-2xl backdrop-blur-xl transition-colors duration-300 sm:p-6"
+      style={
+        {
+          '--lab-glow-x': '50%',
+          '--lab-glow-y': '50%',
+          boxShadow: `0 24px 80px -24px ${project.theme.glowRgba}, inset 0 1px 0 0 rgba(255,255,255,0.08)`,
+          borderColor: `${project.theme.accentHex}33`,
+        } as React.CSSProperties
+      }
     >
+      {/* Dynamic pointer-tracked rim glow synced to project accent */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 opacity-60 transition-opacity duration-500 group-hover:opacity-100"
+        style={{
+          background: `radial-gradient(520px circle at var(--lab-glow-x) var(--lab-glow-y), ${project.theme.accentHex}1A, transparent 62%)`,
+        }}
+      />
+      {/* Top specular accent rim highlight */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-6 top-0 h-px opacity-75"
+        style={{
+          background: `linear-gradient(90deg, transparent, ${project.theme.accentHex}AA, ${project.theme.secondaryHex}88, transparent)`,
+        }}
+      />
+
       {/* Header strip */}
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+      <div className="relative z-10 mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
             <span
               className="inline-block h-2 w-2 animate-pulse rounded-full"
-              style={{ backgroundColor: project.theme.accentHex }}
+              style={{
+                backgroundColor: project.theme.accentHex,
+                boxShadow: `0 0 10px ${project.theme.accentHex}`,
+              }}
             />
             <span className="font-mono text-[11px] font-semibold tracking-widest text-zinc-400 uppercase">
               {project.interactiveLab.subtitle[lang]}
@@ -634,9 +695,17 @@ export const InteractiveProjectLab: React.FC<InteractiveProjectLabProps> = ({
                 playHoverTick(soundEnabled)
                 setPresetIdx(idx)
               }}
+              style={
+                presetIdx === idx
+                  ? {
+                      borderColor: `${project.theme.accentHex}99`,
+                      boxShadow: `0 0 14px -4px ${project.theme.accentHex}88`,
+                    }
+                  : undefined
+              }
               className={`rounded-full border px-3 py-1 font-mono text-[11px] transition-all ${
                 presetIdx === idx
-                  ? 'border-white/40 bg-white/15 text-white'
+                  ? 'bg-white/15 text-white'
                   : 'border-white/10 bg-white/[0.03] text-zinc-400 hover:border-white/25 hover:text-zinc-200'
               }`}
             >
@@ -657,7 +726,10 @@ export const InteractiveProjectLab: React.FC<InteractiveProjectLabProps> = ({
       {/* Shader Canvas Viewport */}
       <div
         data-cursor="DRAG / MOVE"
-        style={{ touchAction: 'pan-y' }}
+        style={{
+          touchAction: 'pan-y',
+          boxShadow: `inset 0 0 0 1px rgba(255,255,255,0.06), 0 0 36px -14px ${project.theme.glowRgba}`,
+        }}
         onMouseMove={(e) => handlePointer(e.clientX, e.clientY)}
         onTouchMove={(e) => {
           if (e.touches[0]) {
@@ -665,7 +737,7 @@ export const InteractiveProjectLab: React.FC<InteractiveProjectLabProps> = ({
           }
         }}
         onClick={(e) => handlePointer(e.clientX, e.clientY)}
-        className="relative aspect-[16/9] w-full cursor-crosshair overflow-hidden rounded-2xl border border-white/10 bg-black"
+        className="relative z-10 aspect-[16/9] w-full cursor-crosshair overflow-hidden rounded-2xl border border-white/15 bg-black"
       >
         {/* Static fallback preview if WebGL is off, offscreen, or recovering from context loss */}
         {(!inView || !webglOk || contextLost) && (
@@ -682,9 +754,21 @@ export const InteractiveProjectLab: React.FC<InteractiveProjectLabProps> = ({
           className="pointer-events-none absolute inset-0 h-full w-full"
         />
 
-        {/* Overlay Telemetry HUD */}
-        <div className="pointer-events-none absolute top-3 left-3 flex flex-wrap items-center gap-2 rounded-full border border-white/15 bg-black/65 px-3 py-1 backdrop-blur-md">
-          <span className="font-mono text-[10px] tracking-wider text-zinc-300">
+        {/* Overlay Telemetry HUD (Left) */}
+        <div
+          className="pointer-events-none absolute top-3 left-3 flex flex-wrap items-center gap-2 rounded-full border border-white/15 bg-black/70 px-3 py-1 backdrop-blur-md"
+          style={{
+            boxShadow: `0 4px 18px -6px rgba(0,0,0,0.8), 0 0 0 1px ${project.theme.accentHex}26`,
+          }}
+        >
+          <span
+            className="h-1.5 w-1.5 rounded-full"
+            style={{
+              backgroundColor: project.theme.accentHex,
+              boxShadow: `0 0 8px ${project.theme.accentHex}`,
+            }}
+          />
+          <span className="font-mono text-[10px] tracking-wider text-zinc-200">
             GLSL · {MODE_TELEMETRY[mode]}
           </span>
           {mode === 'kane' && (
@@ -712,10 +796,17 @@ export const InteractiveProjectLab: React.FC<InteractiveProjectLabProps> = ({
             </span>
           )}
         </div>
+
+        {/* Optical Pipeline Telemetry Badge (Right) */}
+        <div className="pointer-events-none absolute top-3 right-3 hidden items-center gap-1.5 rounded-full border border-white/10 bg-black/60 px-2.5 py-1 backdrop-blur-md sm:flex">
+          <span className="font-mono text-[9px] tracking-[0.14em] text-zinc-400 uppercase">
+            ACES · HDR
+          </span>
+        </div>
       </div>
 
       {/* Interactive Controls Footer */}
-      <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="relative z-10 mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="max-w-xl text-xs leading-relaxed text-zinc-400">
           {project.interactiveLab.instructions[lang]}
         </p>
