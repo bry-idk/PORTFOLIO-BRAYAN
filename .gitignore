@@ -1,0 +1,28 @@
+# Dependencies & build outputs
+node_modules
+dist
+.netlify
+*.tsbuildinfo
+
+# Local / OS / test caches
+.DS_Store
+Thumbs.db
+*.local
+.env
+.env.*
+!.env.example
+.vitest
+playwright-report
+test-results
+
+# Raw source materials (already web-optimized inside public/media/)
+# Excluded so the repository stays lightweight and below GitHub's 100 MB file limit
+pdf portfolio completo.pdf
+portfolio pag 1.pdf
+link behance.txt
+Cronicas de Palenque/
+General/
+Kane no Hibiki/
+Notas y Colores/
+SOGNO/
+The Amazing Digital Circus 2/

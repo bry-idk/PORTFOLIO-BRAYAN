@@ -1,0 +1,90 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-obsidian: #06070b;
+  --accent-neon: #2eff7b;
+  --accent-violet: #8b3dff;
+}
+
+html {
+  background-color: #06070b;
+  color: #f4f4f5;
+  scroll-behavior: auto;
+}
+
+body {
+  overflow-x: hidden;
+  background-color: #06070b;
+  font-family: 'Space Grotesk', 'Plus Jakarta Sans', system-ui, sans-serif;
+}
+
+/* Custom sleek scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #06070b;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(139, 61, 255, 0.45);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(46, 255, 123, 0.7);
+}
+
+/* Subtle halftone editorial motif inspired by portfolio pag 1.pdf */
+.halftone-grid {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.085) 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+
+.halftone-grid-dense {
+  background-image: radial-gradient(rgba(46, 255, 123, 0.14) 1px, transparent 1px);
+  background-size: 12px 12px;
+}
+
+/* Subtle architectural scanlines */
+.crt-scanlines {
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0) 0px,
+    rgba(255, 255, 255, 0) 2px,
+    rgba(0, 0, 0, 0.18) 3px,
+    rgba(0, 0, 0, 0.18) 4px
+  );
+}
+
+/* Hide custom cursor on touch/coarse pointer devices */
+@media (pointer: coarse) {
+  .custom-cursor-layer {
+    display: none !important;
+  }
+}
+
+/* Hide scrollbars cleanly on horizontal project dock */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Editorial outline text utility */
+.text-stroke-subtle {
+  -webkit-text-stroke: 1px rgba(255, 255, 255, 0.22);
+  color: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
