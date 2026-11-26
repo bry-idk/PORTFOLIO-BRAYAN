@@ -60,16 +60,16 @@ export const LAB_FRAGMENT_SHADER = /* glsl */ `
 
   vec3 sampleCover(vec2 uv) {
     vec2 clamped = clamp(uv, 0.001, 0.999);
-    vec3 curr = uHasTexture > 0.5
+    vec3 result = uHasTexture > 0.5
       ? texture2D(uTexture, clamped).rgb
       : vec3(0.06, 0.08, 0.13);
 
     if (uHasPrevTexture > 0.5 && uMix < 0.999) {
       vec3 prev = texture2D(uPrevTexture, clamped).rgb;
       float t = smoothstep(0.0, 1.0, uMix);
-      return mix(prev, curr, t);
+      result = mix(prev, result, t);
     }
-    return curr;
+    return result;
   }
 
   void main() {

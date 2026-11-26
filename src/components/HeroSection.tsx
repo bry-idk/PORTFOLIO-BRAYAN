@@ -79,7 +79,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ lang, onJumpTo }) => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, delay: 0.12, ease: [0.22, 1, 0.36, 1] }}
-              className="display-safe font-display text-[clamp(1.85rem,5.8vw,4.75rem)] leading-[0.93] font-extrabold tracking-[-0.03em] text-white"
+              className="display-safe font-display text-[clamp(1.65rem,4.35vw,3.95rem)] leading-[0.94] font-extrabold tracking-[-0.03em] text-white"
             >
               <span className="block">PORTFOLIO</span>
               <span className="block bg-gradient-to-r from-[#2EFF7B] via-emerald-100 to-white bg-clip-text text-transparent">

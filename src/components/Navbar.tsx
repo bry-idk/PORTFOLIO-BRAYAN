@@ -77,8 +77,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   }
 
   return (
-    <header className="fixed top-0 right-0 left-0 z-50 px-3 pt-2.5 sm:px-6 sm:pt-3">
-      <div className="relative mx-auto flex max-w-7xl items-center justify-between gap-3 overflow-hidden rounded-2xl border border-white/[0.1] bg-[#06080E]/82 px-3.5 py-2 shadow-[0_14px_44px_rgba(0,0,0,0.55)] backdrop-blur-2xl sm:px-4">
+    <header className="fixed top-0 right-0 left-0 z-50 h-[64px] border-b border-white/[0.09] bg-[#05060A]/94 shadow-[0_8px_32px_rgba(0,0,0,0.45)] backdrop-blur-2xl">
+      <div className="relative mx-auto flex h-full max-w-7xl items-center justify-between gap-3 px-4 sm:px-8 lg:px-12">
         {/* Brand Monogram + Live Active-Project Telemetry */}
         <button
           type="button"
@@ -211,22 +211,22 @@ export const Navbar: React.FC<NavbarProps> = ({
             )}
           </button>
         </div>
+      </div>
 
-        {/* 1.5px Scroll Progress Hairline */}
+      {/* 1.5px Full-Bleed Scroll Progress Hairline along bottom edge (y=64px) */}
+      <div
+        className="pointer-events-none absolute right-0 bottom-0 left-0 h-[1.5px] bg-white/[0.05]"
+        aria-hidden="true"
+      >
         <div
-          className="pointer-events-none absolute right-0 bottom-0 left-0 h-[1.5px] bg-white/[0.05]"
-          aria-hidden="true"
-        >
-          <div
-            className="h-full w-full origin-left transition-[transform,background] duration-150 ease-out will-change-transform"
-            style={{
-              transform: `scaleX(${clampedProgress})`,
-              background: `linear-gradient(90deg, #2EFF7B 0%, ${activeAccent} 100%)`,
-              boxShadow:
-                clampedProgress > 0.01 ? `0 0 10px ${activeAccent}80` : 'none',
-            }}
-          />
-        </div>
+          className="h-full w-full origin-left transition-[transform,background] duration-150 ease-out will-change-transform"
+          style={{
+            transform: `scaleX(${clampedProgress})`,
+            background: `linear-gradient(90deg, #2EFF7B 0%, ${activeAccent} 100%)`,
+            boxShadow:
+              clampedProgress > 0.01 ? `0 0 10px ${activeAccent}80` : 'none',
+          }}
+        />
       </div>
 
       {/* Accessible Mobile Drawer (Escape-to-close) */}
@@ -240,7 +240,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-            className="mx-auto mt-2 max-w-7xl overflow-hidden rounded-2xl border border-white/[0.1] bg-[#070910]/95 p-4 shadow-[0_24px_60px_rgba(0,0,0,0.75)] backdrop-blur-2xl lg:hidden"
+            className="mx-3 mt-2 max-w-7xl overflow-hidden rounded-2xl border border-white/[0.1] bg-[#070910]/96 p-4 shadow-[0_24px_60px_rgba(0,0,0,0.75)] backdrop-blur-2xl sm:mx-6 lg:hidden"
           >
             {activeProject ? (
               <div className="mb-3 flex items-center justify-between border-b border-white/[0.08] pb-2.5 font-mono text-[10px] tracking-[0.2em] text-zinc-400 uppercase">
