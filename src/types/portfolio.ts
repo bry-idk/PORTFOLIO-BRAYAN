@@ -11,6 +11,8 @@ export type ProjectId =
   | 'sogno'
   | 'notas-y-colores'
   | 'the-amazing-digital-circus-2'
+  | 'reminiscencia'
+  | 'vestigio'
 
 export type SoftwareId =
   | 'unity'
@@ -28,6 +30,8 @@ export type SoftwareId =
   | 'polycam'
   | 'maya'
   | 'premiere'
+  | 'python'
+  | 'mediapipe'
 
 export interface MediaAsset {
   id: string
@@ -70,7 +74,14 @@ export interface ProjectTheme {
   shaderPaletteA: [number, number, number]
   shaderPaletteB: [number, number, number]
   shaderPaletteC: [number, number, number]
-  labMode: 'palenque' | 'kane' | 'sogno' | 'notas' | 'tadc2'
+  labMode:
+    | 'palenque'
+    | 'kane'
+    | 'sogno'
+    | 'notas'
+    | 'tadc2'
+    | 'reminiscencia'
+    | 'vestigio'
 }
 
 export interface ProjectData {

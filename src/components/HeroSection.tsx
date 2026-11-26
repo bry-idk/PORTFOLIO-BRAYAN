@@ -11,6 +11,7 @@ interface Props {
 }
 
 export const HeroSection: React.FC<Props> = ({ lang, onJumpTo }) => {
+  const totalCount = String(PROJECTS_DATA.length).padStart(2, '0')
   return (
     <section
       id="hero"
@@ -99,8 +100,8 @@ export const HeroSection: React.FC<Props> = ({ lang, onJumpTo }) => {
               >
                 <span>
                   {lang === 'en'
-                    ? 'Explore 05 Selected Works'
-                    : 'Explorar 05 Obras'}
+                    ? `Explore ${totalCount} Selected Works`
+                    : `Explorar ${totalCount} Obras`}
                 </span>
                 <ArrowDown className="h-4 w-4 transition-transform group-hover:translate-y-0.5" />
               </button>
@@ -134,10 +135,10 @@ export const HeroSection: React.FC<Props> = ({ lang, onJumpTo }) => {
           >
             <div className="mb-3 flex items-center justify-between border-b border-white/10 pb-2.5">
               <span className="font-mono text-[11px] font-semibold tracking-widest text-zinc-400 uppercase">
-                {lang === 'en' ? 'Index · PDF Sequence' : 'Índice · Orden PDF'}
+                {lang === 'en' ? 'Index · Curated Works' : 'Índice · Obras'}
               </span>
               <span className="font-mono text-[11px] text-[#2EFF7B]">
-                01 — 05
+                01 — {totalCount}
               </span>
             </div>
             <div className="flex flex-col gap-1.5">

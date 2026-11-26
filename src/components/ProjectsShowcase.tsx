@@ -45,7 +45,7 @@ export const ProjectsShowcase: React.FC<Props> = ({
         </div>
       </div>
 
-      {/* Render all 5 projects in strict PDF presentation order */}
+      {/* Render all portfolio projects in curated presentation order */}
       {PROJECTS_DATA.map((project) => (
         <ProjectChapter
           key={project.id}

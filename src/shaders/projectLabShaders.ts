@@ -7,7 +7,7 @@ export const LAB_VERTEX_SHADER = /* glsl */ `
 `
 
 /**
- * Unified bespoke multi-mode GLSL fragment shader supporting all 5 projects'
+ * Unified bespoke multi-mode GLSL fragment shader supporting all 7 projects'
  * interactive physical/computational mechanics cleanly in real time.
  */
 export const LAB_FRAGMENT_SHADER = /* glsl */ `
@@ -20,8 +20,8 @@ export const LAB_FRAGMENT_SHADER = /* glsl */ `
   uniform float uTime;
   uniform vec2 uMouse;
   uniform vec2 uResolution;
-  uniform int uMode; // 0: Palenque, 1: Kane, 2: Sogno, 3: Notas, 4: TADC2
-  uniform float uParamA; // Ultrasonic distance / Glitch intensity / Scan radius / Pulse energy
+  uniform int uMode; // 0: Palenque, 1: Kane, 2: Sogno, 3: Notas, 4: TADC2, 5: Reminiscencia, 6: Vestigio
+  uniform float uParamA; // Ultrasonic distance / Glitch intensity / Scan radius / Pulse energy / Clay relief
   uniform vec4 uBeatLanes; // Notas y Colores 4-lane triggers
 
   float hash(vec2 p) {
@@ -171,31 +171,91 @@ export const LAB_FRAGMENT_SHADER = /* glsl */ `
     }
 
     // MODE 4: The Amazing Digital Circus 2 — Retro-Digital CRT & Glitch LookDev Shader
-    vec2 centered = uv - 0.5;
-    float r2 = dot(centered, centered);
-    float barrel = 1.0 + r2 * (0.12 + uParamA * 0.15);
-    vec2 crtUv = centered * barrel + 0.5;
+    if (uMode == 4) {
+      vec2 centered = uv - 0.5;
+      float r2 = dot(centered, centered);
+      float barrel = 1.0 + r2 * (0.12 + uParamA * 0.15);
+      vec2 crtUv = centered * barrel + 0.5;
 
-    float glitchStrength = uParamA * 0.045 + exp(-distM * 3.0) * 0.018;
-    float rowGlitch = step(0.84 - uParamA * 0.22, hash(vec2(floor(uv.y * 34.0), floor(uTime * 12.0))));
-    float xShift = (hash(vec2(floor(uv.y * 22.0), floor(uTime * 18.0))) - 0.5) * glitchStrength * (1.0 + rowGlitch * 3.5);
+      float glitchStrength = uParamA * 0.045 + exp(-distM * 3.0) * 0.018;
+      float rowGlitch = step(0.84 - uParamA * 0.22, hash(vec2(floor(uv.y * 34.0), floor(uTime * 12.0))));
+      float xShift = (hash(vec2(floor(uv.y * 22.0), floor(uTime * 18.0))) - 0.5) * glitchStrength * (1.0 + rowGlitch * 3.5);
 
-    vec2 rUv = crtUv + vec2(xShift + glitchStrength * 0.4, 0.0);
-    vec2 gUv = crtUv + vec2(xShift * 0.4, 0.0);
-    vec2 bUv = crtUv + vec2(xShift - glitchStrength * 0.4, 0.0);
+      vec2 rUv = crtUv + vec2(xShift + glitchStrength * 0.4, 0.0);
+      vec2 gUv = crtUv + vec2(xShift * 0.4, 0.0);
+      vec2 bUv = crtUv + vec2(xShift - glitchStrength * 0.4, 0.0);
 
-    float r = sampleCover(rUv).r;
-    float g = sampleCover(gUv).g;
-    float b = sampleCover(bUv).b;
-    vec3 col = vec3(r, g, b);
+      float r = sampleCover(rUv).r;
+      float g = sampleCover(gUv).g;
+      float b = sampleCover(bUv).b;
+      vec3 col = vec3(r, g, b);
 
-    // Subtle CRT scanlines + spotlight around pointer
-    float scan = 0.9 + 0.1 * sin(uv.y * uResolution.y * 1.4);
-    float spot = 0.82 + 0.35 * exp(-distM * 3.2);
-    col = col * scan * spot;
+      // Subtle CRT scanlines + spotlight around pointer
+      float scan = 0.9 + 0.1 * sin(uv.y * uResolution.y * 1.4);
+      float spot = 0.82 + 0.35 * exp(-distM * 3.2);
+      col = col * scan * spot;
 
-    // Vignette at barrel border
-    float vig = smoothstep(0.95, 0.45, length(centered));
-    gl_FragColor = vec4(col * (0.75 + 0.25 * vig), 1.0);
+      // Vignette at barrel border
+      float vig = smoothstep(0.95, 0.45, length(centered));
+      gl_FragColor = vec4(col * (0.75 + 0.25 * vig), 1.0);
+      return;
+    }
+
+    // MODE 5: Reminiscencia — Memory Fragment Signal, VHS Tracking & Halftone Anomaly
+    if (uMode == 5) {
+      float corrupt = clamp(uParamA, 0.0, 1.0);
+      float proximity = exp(-distM * 3.4);
+
+      // Horizontal VHS tracking tear + memory echo around cursor
+      float bandNoise = hash(vec2(floor(uv.y * 42.0), floor(uTime * 10.0)));
+      float tear = step(0.88 - corrupt * 0.2, bandNoise) * (corrupt * 0.032 + proximity * 0.02);
+      vec2 memUv = uv + vec2((bandNoise - 0.5) * tear, sin(uv.x * 18.0 + uTime * 3.0) * 0.003 * proximity);
+
+      float chroma = 0.004 + corrupt * 0.016 + proximity * 0.014;
+      float r = sampleCover(memUv + vec2(chroma, 0.0)).r;
+      float g = sampleCover(memUv).g;
+      float b = sampleCover(memUv - vec2(chroma, 0.0)).b;
+      vec3 col = vec3(r, g, b);
+
+      // Subtle halftone grid pulse inside memory anomaly
+      vec2 hGrid = fract(uv * vec2(72.0, 42.0)) - 0.5;
+      float halftone = smoothstep(0.36, 0.14, length(hGrid));
+      float ring = exp(-abs(distM - (0.16 + 0.04 * sin(uTime * 3.0))) * 32.0);
+      vec3 violetGold = mix(vec3(0.66, 0.33, 0.97), vec3(0.98, 0.82, 0.12), ring);
+
+      float scan = 0.92 + 0.08 * sin(uv.y * uResolution.y * 1.1 + uTime * 6.0);
+      col = col * scan + violetGold * (ring * 0.55 + halftone * proximity * (0.18 + corrupt * 0.25));
+      gl_FragColor = vec4(col, 1.0);
+      return;
+    }
+
+    // MODE 6: Vestigio (ALFAR) — Contactless Clay Sculpting Lathe & Terracotta Ember Field
+    float sculpt = clamp(uParamA, 0.0, 1.0);
+    float radial = exp(-distM * 2.8);
+
+    // Subtle pottery wheel rotational warp & radial clay displacement near pointer
+    vec2 toMouse = uv - m;
+    float spinWave = sin((uv.y - m.y) * 28.0 - uTime * (2.2 + sculpt * 4.0)) * 0.012 * radial * (0.4 + sculpt);
+    vec2 clayUv = uv + vec2(spinWave + toMouse.x * radial * 0.05 * (sculpt - 0.3), 0.0);
+    vec3 base = sampleCover(clayUv);
+
+    // Concentric potter's wheel contour lines & terracotta-gold rim illumination
+    float contour = pow(sin(distM * 42.0 - uTime * 3.4) * 0.5 + 0.5, 4.0) * exp(-distM * 3.0);
+    float luma = dot(base, vec3(0.299, 0.587, 0.114));
+    vec3 goldClay = mix(vec3(0.96, 0.55, 0.12), vec3(1.0, 0.85, 0.42), luma);
+
+    // Rising ancestral clay dust & ember motes
+    float embers = 0.0;
+    for (int i = 0; i < 6; i++) {
+      float fi = float(i);
+      vec2 ep = vec2(
+        fract(0.21 * fi + sin(uTime * 0.45 + fi * 1.7) * 0.09 + (m.x - 0.5) * 0.18),
+        fract(0.15 * fi + uTime * (0.045 + 0.01 * fi))
+      );
+      embers += exp(-length((uv - ep) * vec2(1.5, 1.0)) * 38.0);
+    }
+
+    vec3 col = base * (0.85 + radial * 0.32) + goldClay * (contour * (0.28 + sculpt * 0.42) + radial * 0.14) + vec3(1.0, 0.78, 0.32) * embers * 0.7;
+    gl_FragColor = vec4(col, 1.0);
   }
 `

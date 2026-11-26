@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Award, ChevronDown, ChevronUp, Cpu, Layers, Monitor } from 'lucide-react'
 import { PROFILE_DATA } from '../data/profileData'
+import { PROJECTS_DATA } from '../data/projectsData'
 import { Lang, MediaAsset, ProjectData } from '../types/portfolio'
 import { ShaderImagePortal } from './ShaderImagePortal'
 import { SoftwareIconBadge } from './SoftwareIconBadge'
@@ -27,6 +28,23 @@ export const ProjectChapter: React.FC<Props> = ({
 
   const mediaMap = new Map(project.gallery.map((m) => [m.id, m]))
   const videoMap = new Map(project.videos.map((v) => [v.id, v]))
+  const totalProjectsLabel = String(PROJECTS_DATA.length).padStart(2, '0')
+
+  const primaryVideoIdByProject: Partial<Record<ProjectData['id'], string>> = {
+    'cronicas-de-palenque': 'palenque-main',
+    'kane-no-hibiki': 'kane-video-main',
+    reminiscencia: 'rem-gameplay',
+    vestigio: 'ves-hand-tracking',
+  }
+  const primaryVideoId = primaryVideoIdByProject[project.id]
+  const primaryVideo = primaryVideoId ? videoMap.get(primaryVideoId) : undefined
+
+  const usedVideoIds = new Set<string>()
+  if (primaryVideo) usedVideoIds.add(primaryVideo.id)
+  project.chapters.forEach((ch) => {
+    if (ch.videoId) usedVideoIds.add(ch.videoId)
+  })
+  const remainingVideos = project.videos.filter((v) => !usedVideoIds.has(v.id))
 
   const folderExtras = project.gallery.filter((g) => g.group === 'folder-extra')
   const pdfGridOrPrimary = project.gallery.filter(
@@ -78,7 +96,7 @@ export const ProjectChapter: React.FC<Props> = ({
                 color: project.theme.accentHex,
               }}
             >
-              {project.indexLabel} / 05 · {project.pdfPages}
+              {project.indexLabel} / {totalProjectsLabel} · {project.pdfPages}
             </span>
             <span className="rounded-full border border-white/15 bg-white/[0.04] px-3.5 py-1 font-mono text-xs text-zinc-300">
               {project.projectType[lang]}
@@ -140,6 +158,12 @@ export const ProjectChapter: React.FC<Props> = ({
                   src={project.titleLogos.primary}
                   alt="The Amazing Digital Circus 2"
                   className="h-24 w-auto object-contain drop-shadow-[0_12px_28px_rgba(239,68,68,0.35)] sm:h-36"
+                />
+              ) : project.id === 'vestigio' && project.titleLogos ? (
+                <img
+                  src={project.titleLogos.primary}
+                  alt="ALFAR: Arqueologías del Barro"
+                  className="h-20 w-auto object-contain drop-shadow-[0_10px_28px_rgba(245,158,11,0.3)] sm:h-28"
                 />
               ) : null}
 
@@ -294,19 +318,10 @@ export const ProjectChapter: React.FC<Props> = ({
         </div>
 
         {/* ======================== PRIMARY VIDEO REEL (IF PRESENT) ======================== */}
-        {project.id === 'cronicas-de-palenque' && videoMap.get('palenque-main') && (
+        {primaryVideo && (
           <div className="mt-10">
             <VideoPlayer
-              video={videoMap.get('palenque-main')!}
-              lang={lang}
-              accentHex={project.theme.accentHex}
-            />
-          </div>
-        )}
-        {project.id === 'kane-no-hibiki' && videoMap.get('kane-video-main') && (
-          <div className="mt-10">
-            <VideoPlayer
-              video={videoMap.get('kane-video-main')!}
+              video={primaryVideo}
               lang={lang}
               accentHex={project.theme.accentHex}
             />
@@ -467,14 +482,45 @@ export const ProjectChapter: React.FC<Props> = ({
           })}
         </div>
 
+        {/* ======================== ADDITIONAL MOTION & VIDEO DOCUMENTATION ======================== */}
+        {remainingVideos.length > 0 && (
+          <div className="mt-12">
+            <div className="mb-5 flex items-center justify-between">
+              <h3 className="font-mono text-xs font-bold tracking-[0.22em] text-zinc-400 uppercase">
+                {lang === 'en'
+                  ? 'MOTION & SYSTEM DOCUMENTATION'
+                  : 'REGISTRO AUDIOVISUAL DEL SISTEMA'}
+              </h3>
+              <span className="font-mono text-xs text-zinc-500">
+                {remainingVideos.length}{' '}
+                {lang === 'en' ? 'REELS' : 'VIDEOS'}
+              </span>
+            </div>
+            <div className="grid gap-6 md:grid-cols-2">
+              {remainingVideos.map((vid) => (
+                <VideoPlayer
+                  key={vid.id}
+                  video={vid}
+                  lang={lang}
+                  accentHex={project.theme.accentHex}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* ======================== REMAINING PDF SHOWCASE STILLS ======================== */}
         {remainingPdfStills.length > 0 && (
           <div className="mt-12">
             <div className="mb-5 flex items-center justify-between">
               <h3 className="font-mono text-xs font-bold tracking-[0.22em] text-zinc-400 uppercase">
-                {lang === 'en'
-                  ? 'VISUAL SHOWCASE SEQUENCE (PDF ORDER)'
-                  : 'SECUENCIA VISUAL DE EXHIBICIÓN (ORDEN PDF)'}
+                {project.order <= 5
+                  ? lang === 'en'
+                    ? 'VISUAL SHOWCASE SEQUENCE (PDF ORDER)'
+                    : 'SECUENCIA VISUAL DE EXHIBICIÓN (ORDEN PDF)'
+                  : lang === 'en'
+                    ? 'VISUAL SHOWCASE SEQUENCE'
+                    : 'SECUENCIA VISUAL DE EXHIBICIÓN'}
               </h3>
               <span className="font-mono text-xs text-zinc-500">
                 {remainingPdfStills.length}{' '}

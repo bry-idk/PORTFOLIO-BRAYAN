@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { ArrowUpRight, Menu, X } from 'lucide-react'
 import { BEHANCE_EXACT_URL } from '../data/profileData'
+import { PROJECTS_DATA } from '../data/projectsData'
 import { Lang, ProjectData } from '../types/portfolio'
 
 interface Props {
@@ -17,9 +18,13 @@ export const Navbar: React.FC<Props> = ({
   onJumpTo,
 }) => {
   const [mobileOpen, setMobileOpen] = useState(false)
+  const totalCount = String(PROJECTS_DATA.length).padStart(2, '0')
 
   const navItems = [
-    { href: '#works', label: { en: 'Works (05)', es: 'Obras (05)' } },
+    {
+      href: '#works',
+      label: { en: `Works (${totalCount})`, es: `Obras (${totalCount})` },
+    },
     { href: '#practice', label: { en: 'Practice & Bio', es: 'Práctica y Bio' } },
     { href: '#cv', label: { en: 'Trajectory & Skills', es: 'Trayectoria' } },
     { href: '#awards', label: { en: 'Awards', es: 'Premios' } },

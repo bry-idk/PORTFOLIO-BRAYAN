@@ -16,6 +16,8 @@ const MODE_INDEX: Record<ProjectData['theme']['labMode'], number> = {
   sogno: 2,
   notas: 3,
   tadc2: 4,
+  reminiscencia: 5,
+  vestigio: 6,
 }
 
 const LAB_TEXTURES: Record<
@@ -82,6 +84,34 @@ const LAB_TEXTURES: Record<
     {
       label: { en: 'Stage Error', es: 'Error Escenario' },
       src: '/media/projects/tadc2/scene-caine-stage.webp',
+    },
+  ],
+  reminiscencia: [
+    {
+      label: { en: 'Cyber Memory Hall', es: 'Salón de Memoria' },
+      src: '/media/projects/reminiscencia/cyber-hall.webp',
+    },
+    {
+      label: { en: 'Pyramid Chamber', es: 'Cámara de Pirámides' },
+      src: '/media/projects/reminiscencia/pyramid-chamber.webp',
+    },
+    {
+      label: { en: 'Gravity Room', es: 'Habitación Invertida' },
+      src: '/media/projects/reminiscencia/gravity-room.webp',
+    },
+    {
+      label: { en: 'CRT Cover', es: 'Portada CRT' },
+      src: '/media/projects/reminiscencia/portada.webp',
+    },
+  ],
+  vestigio: [
+    {
+      label: { en: 'Sacred Vessel', es: 'Vasija Sagrada' },
+      src: '/media/projects/vestigio/portada.webp',
+    },
+    {
+      label: { en: 'Exhibition Wall', es: 'Muro de Exhibición' },
+      src: '/media/projects/vestigio/exhibition-wall.webp',
     },
   ],
 }
@@ -492,6 +522,42 @@ export const InteractiveProjectLab: React.FC<Props> = ({ project, lang }) => {
               aria-label="CRT glitch intensity"
               onChange={(e) => setParamA(parseFloat(e.target.value))}
               className="h-1.5 w-full cursor-pointer accent-[#EF4444]"
+            />
+          </div>
+        )}
+
+        {mode === 'reminiscencia' && (
+          <div className="flex min-w-[230px] items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-3.5 py-2">
+            <span className="font-mono text-[11px] text-zinc-300">
+              {lang === 'en' ? 'VHS Signal' : 'Señal VHS'}
+            </span>
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value={paramA}
+              aria-label="VHS signal corruption"
+              onChange={(e) => setParamA(parseFloat(e.target.value))}
+              className="h-1.5 w-full cursor-pointer accent-[#A855F7]"
+            />
+          </div>
+        )}
+
+        {mode === 'vestigio' && (
+          <div className="flex min-w-[230px] items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-3.5 py-2">
+            <span className="font-mono text-[11px] text-zinc-300">
+              {lang === 'en' ? 'Clay Lathe' : 'Torno / Relieve'}
+            </span>
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value={paramA}
+              aria-label="Clay sculpting lathe intensity"
+              onChange={(e) => setParamA(parseFloat(e.target.value))}
+              className="h-1.5 w-full cursor-pointer accent-[#F59E0B]"
             />
           </div>
         )}

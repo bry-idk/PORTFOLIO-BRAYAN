@@ -11,15 +11,17 @@ afterEach(() => {
 })
 
 describe('Portfolio Data Fidelity & Media Integrity', () => {
-  it('maintains the exact 5 projects in exact pdf portfolio completo.pdf order', () => {
+  it('maintains all 7 projects in curated portfolio order', () => {
     expect(PROJECTS_DATA.map((p) => p.title)).toEqual([
       'Crónicas de Palenque',
       'Kane no Hibiki',
       'SOGNO',
       'Notas y Colores',
       'The Amazing Digital Circus 2',
+      'Reminiscencia',
+      'Vestigio',
     ])
-    expect(PROJECTS_DATA.map((p) => p.order)).toEqual([1, 2, 3, 4, 5])
+    expect(PROJECTS_DATA.map((p) => p.order)).toEqual([1, 2, 3, 4, 5, 6, 7])
   })
 
   it('uses the exact Behance URL from link behance.txt', () => {
@@ -80,7 +82,7 @@ describe('Portfolio Data Fidelity & Media Integrity', () => {
 })
 
 describe('Portfolio Interactive UI & Bilingual EN/ES Switcher', () => {
-  it('renders all 5 project chapters, bio, awards, exact Behance link, and switches language EN <-> ES live', () => {
+  it('renders all 7 project chapters, bio, awards, exact Behance link, and switches language EN <-> ES live', () => {
     render(<App />)
 
     // Verify EN content initially
@@ -95,6 +97,8 @@ describe('Portfolio Interactive UI & Bilingual EN/ES Switcher', () => {
     expect(
       screen.getByRole('heading', { name: /The Amazing Digital Circus 2/i })
     ).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /Reminiscencia/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /Vestigio/i })).toBeInTheDocument()
 
     // Verify exact Behance link exists in DOM
     const behanceLinks = screen

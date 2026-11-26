@@ -19,12 +19,13 @@ export const SOFTWARE_META: Record<
   polycam: { name: 'Polycam (LiDAR)', short: 'LD', color: '#E2E8F0' },
   maya: { name: 'Autodesk Maya', short: 'MY', color: '#38BDF8' },
   premiere: { name: 'Adobe Premiere Pro', short: 'Pr', color: '#C084FC' },
+  python: { name: 'Python', short: 'PY', color: '#FACC15' },
+  mediapipe: { name: 'MediaPipe Tracking', short: 'MP', color: '#38BDF8' },
 }
 
 /**
- * 5 Projects strictly ordered according to "pdf portfolio completo.pdf" (pages 4–29).
- * Image presentation respects the exact PDF sequence, with folder extras clearly organized
- * within each corresponding project without mixing assets across projects.
+ * 7 Portfolio Projects: the 5 projects ordered according to "pdf portfolio completo.pdf" (pages 4–29)
+ * followed by the 2026 additions Reminiscencia and Vestigio (ALFAR: Arqueologías del Barro).
  */
 export const PROJECTS_DATA: ProjectData[] = [
   // =========================================================================
@@ -1520,6 +1521,387 @@ export const PROJECTS_DATA: ProjectData[] = [
       instructions: {
         en: 'Move across the 3D render or adjust glitch intensity to inspect real-time RGB chromatic aberration, CRT scanlines, and stylized retro-digital shaders.',
         es: 'Mueve el puntero sobre el render 3D o ajusta la intensidad glitch para inspeccionar aberración cromática RGB, scanlines CRT y shaders retro-digitales.',
+      },
+    },
+  },
+
+  // =========================================================================
+  // 06. REMINISCENCIA (2026)
+  // =========================================================================
+  {
+    order: 6,
+    indexLabel: '06',
+    id: 'reminiscencia',
+    slug: 'reminiscencia',
+    title: 'Reminiscencia',
+    studioOrContext: {
+      en: 'Experimental 3D Action-Adventure · Prototype 2026',
+      es: 'Aventura de Acción Experimental 3D · Prototipo 2026',
+    },
+    pdfPages: '2026 Archive',
+    projectType: {
+      en: '3D Psychological Action Videogame',
+      es: 'Videojuego Psicológico de Acción 3D',
+    },
+    technologies: {
+      en: 'Custom CRT/VHS & Halftone Shaders, Kinetic Combat & Spatial Puzzles',
+      es: 'Shaders CRT/VHS y Halftone Personalizados, Combate Cinético y Puzles Espaciales',
+    },
+    platforms: {
+      en: 'PC (Desktop)',
+      es: 'PC (Escritorio)',
+    },
+    software: ['unity', 'blender', 'vscode', 'photoshop', 'audition'],
+    coverImage: '/media/projects/reminiscencia/portada.webp',
+    coverAlt: {
+      en: 'Reminiscencia retro CRT glitch cover art in violet and neon yellow',
+      es: 'Portada retro CRT con glitch de Reminiscencia en violeta y amarillo neón',
+    },
+    overviewParagraphs: [
+      {
+        en: 'Reminiscencia is an experimental 3D psychological action-adventure game set inside fractured memory architecture. Players traverse surreal chambers—inverted gravity rooms, halftone pyramid sanctuaries, and neon cybernetic halls—guided by fragmented signals toward lost memory relics.',
+        es: 'Reminiscencia es un videojuego experimental 3D de acción y exploración psicológica ambientado en una arquitectura de memoria fracturada. El jugador recorre cámaras surrealistas —habitaciones con gravedad invertida, santuarios de pirámides en semitono y salones cibernéticos neón— siguiendo señales fragmentadas hacia reliquias de memoria perdidas.',
+      },
+      {
+        en: 'Combining kinetic spinning-blade combat, atmospheric diegetic dialogue, and real-time CRT/VHS post-processing shaders, the project transforms spatial disorientation and analog signal degradation into core gameplay mechanics.',
+        es: 'Combinando combate cinético con peonza giratoria, diálogos diegéticos y shaders de posprocesado CRT/VHS en tiempo real, el proyecto convierte la desorientación espacial y la degradación de señal analógica en mecánicas centrales de juego.',
+      },
+    ],
+    chapters: [
+      {
+        id: 'reminiscencia-combat-spaces',
+        title: {
+          en: 'KINETIC COMBAT & MEMORY FRAGMENTS',
+          es: 'COMBATE CINÉTICO Y FRAGMENTOS DE MEMORIA',
+        },
+        body: [
+          {
+            en: 'Combat encounters take place inside stark geometric arenas where halftone-dithered floors, luminous portals, and reactive particle bursts punctuate every clash. Players wield a spinning kinetic weapon while tracking memory fragments across corrupted chambers.',
+            es: 'Los enfrentamientos ocurren en arenas geométricas donde suelos en tramado halftone, portales luminosos y estallidos de partículas reactivos acentúan cada impacto. El jugador empuña un arma cinética giratoria mientras rastrea fragmentos de memoria entre cámaras corruptas.',
+          },
+        ],
+        mediaIds: ['rem-cyber-hall', 'rem-pyramid-chamber'],
+      },
+      {
+        id: 'reminiscencia-architecture',
+        title: {
+          en: 'SURREAL ARCHITECTURE & CRT LOOKDEV',
+          es: 'ARQUITECTURA ONÍRICA Y ESTÉTICA CRT',
+        },
+        body: [
+          {
+            en: 'Each level reimagines domestic and brutalist spaces through shifting gravity, stark chiaroscuro lighting, and custom full-screen shaders that emulate VHS tracking jitter, chromatic aberration, and scanline bloom.',
+            es: 'Cada nivel reimagina espacios domésticos y brutalistas mediante gravedad alterada, iluminación en claroscuro y shaders personalizados a pantalla completa que emulan inestabilidad VHS, aberración cromática y brillo de líneas CRT.',
+          },
+        ],
+        mediaIds: [
+          'rem-gravity-room',
+          'rem-corridor-kitchen',
+          'rem-inverted-void',
+        ],
+      },
+    ],
+    videos: [
+      {
+        id: 'rem-gameplay',
+        src: '/media/projects/reminiscencia/video-gameplay.mp4',
+        poster: '/media/projects/reminiscencia/cyber-hall.webp',
+        title: {
+          en: 'Kinetic Combat & Signal Tracking Gameplay',
+          es: 'Gameplay de Combate Cinético y Rastreo de Señal',
+        },
+        caption: {
+          en: 'Real-time combat encounter with spinning kinetic relic, diegetic dialogue, and VHS glitch post-processing.',
+          es: 'Combate en tiempo real con reliquia cinética giratoria, diálogo diegético y posprocesado glitch VHS.',
+        },
+        durationLabel: '00:12',
+      },
+    ],
+    gallery: [
+      {
+        id: 'rem-cyber-hall',
+        src: '/media/projects/reminiscencia/cyber-hall.webp',
+        alt: {
+          en: 'Neon blue grid-tiled cyber memory hall with floating entity and CRT scanlines',
+          es: 'Salón cibernético de memoria en azul neón con entidad flotante y líneas CRT',
+        },
+        caption: {
+          en: 'Memory Sector — Neon cobalt hall with grid reflections and CRT chromatic aberration.',
+          es: 'Sector de Memoria — Salón cobalto neón con reflejos en cuadrícula y aberración cromática CRT.',
+        },
+        group: 'pdf-primary',
+        aspect: 'landscape',
+      },
+      {
+        id: 'rem-pyramid-chamber',
+        src: '/media/projects/reminiscencia/pyramid-chamber.webp',
+        alt: {
+          en: 'Monochrome halftone chamber with glowing white and cobalt pyramids',
+          es: 'Cámara monocromática en semitono con pirámides luminosas blancas y cobalto',
+        },
+        caption: {
+          en: 'Arena LookDev — Halftone-dithered pyramid chamber and reflective floor.',
+          es: 'LookDev de Arena — Cámara de pirámides con tramado halftone y suelo reflectante.',
+        },
+        group: 'pdf-primary',
+        aspect: 'landscape',
+      },
+      {
+        id: 'rem-gravity-room',
+        src: '/media/projects/reminiscencia/gravity-room.webp',
+        alt: {
+          en: 'Inverted surreal room with wooden tables and chairs suspended along the wall',
+          es: 'Habitación surrealista invertida con mesas y sillas suspendidas en la pared',
+        },
+        caption: {
+          en: 'Spatial Puzzle — Inverted gravity room with Guía (G) and Inventario (TAB) HUD.',
+          es: 'Puzle Espacial — Habitación de gravedad invertida con HUD Guía (G) e Inventario (TAB).',
+        },
+        group: 'pdf-grid',
+        aspect: 'landscape',
+      },
+      {
+        id: 'rem-corridor-kitchen',
+        src: '/media/projects/reminiscencia/corridor-kitchen.webp',
+        alt: {
+          en: 'Dark storage corridor opening into a bright overexposed kitchen doorway with 0/4 collectible HUD',
+          es: 'Corredor oscuro abriéndose hacia una cocina sobreexpuesta con HUD de coleccionables 0/4',
+        },
+        caption: {
+          en: 'Memory Threshold — Domestic kitchen portal and 0/4 relic collector HUD.',
+          es: 'Umbral de Memoria — Portal hacia cocina doméstica y HUD recolector de reliquias 0/4.',
+        },
+        group: 'pdf-grid',
+        aspect: 'landscape',
+      },
+      {
+        id: 'rem-inverted-void',
+        src: '/media/projects/reminiscencia/inverted-void.webp',
+        alt: {
+          en: 'Vertiginous dark green architectural shaft looking upward into an inverted building void',
+          es: 'Pozo arquitectónico verde oscuro mirando hacia arriba hacia un vacío invertido',
+        },
+        caption: {
+          en: 'Vertical Void — Brutalist inverted shaft under VHS grain and edge distortion.',
+          es: 'Vacío Vertical — Pozo brutalista invertido bajo grano VHS y distorsión periférica.',
+        },
+        group: 'pdf-grid',
+        aspect: 'landscape',
+      },
+    ],
+    theme: {
+      accentHex: '#A855F7',
+      secondaryHex: '#FACC15',
+      tertiaryHex: '#38BDF8',
+      glowRgba: 'rgba(168, 85, 247, 0.36)',
+      shaderPaletteA: [0.66, 0.33, 0.97],
+      shaderPaletteB: [0.98, 0.8, 0.08],
+      shaderPaletteC: [0.12, 0.28, 0.56],
+      labMode: 'reminiscencia',
+    },
+    interactiveLab: {
+      title: {
+        en: 'VHS MEMORY SIGNAL & HALFTONE DISTORTION LAB',
+        es: 'LABORATORIO DE SEÑAL VHS Y DISTORSIÓN HALFTONE',
+      },
+      subtitle: {
+        en: 'Real-Time GLSL Tracking Jitter, Chromatic Echo & Halftone Field',
+        es: 'Inestabilidad VHS, Eco Cromático y Campo Halftone GLSL en Tiempo Real',
+      },
+      instructions: {
+        en: 'Move across the frame to project a memory-signal anomaly ring and adjust the VHS Signal slider to intensify chromatic separation and tape corruption.',
+        es: 'Mueve el puntero sobre el cuadro para proyectar un anillo de anomalía de memoria y ajusta el control Señal VHS para intensificar la separación cromática.',
+      },
+    },
+  },
+
+  // =========================================================================
+  // 07. VESTIGIO — ALFAR: ARQUEOLOGÍAS DEL BARRO (2026)
+  // =========================================================================
+  {
+    order: 7,
+    indexLabel: '07',
+    id: 'vestigio',
+    slug: 'vestigio',
+    title: 'Vestigio',
+    nativeTitle: 'ALFAR · Arqueologías del Barro',
+    studioOrContext: {
+      en: 'Interactive Installation · Tecnológico de Artes Débora Arango 2026',
+      es: 'Instalación Interactiva · Tecnológico de Artes Débora Arango 2026',
+    },
+    pdfPages: '2026 Archive',
+    projectType: {
+      en: 'Gesture-Controlled Interactive Installation',
+      es: 'Instalación Interactiva por Gestos',
+    },
+    technologies: {
+      en: 'Computer Vision Hand Tracking, Procedural 3D Mesh Deformation & Particle Shaders',
+      es: 'Rastreo de Manos por Visión Artificial, Deformación Procedural de Malla 3D y Shaders de Partículas',
+    },
+    platforms: {
+      en: 'Exhibition Display / Webcam & Depth-Aware Interactive Rig',
+      es: 'Pantalla de Exhibición / Sistema Interactivo con Cámara',
+    },
+    software: ['unity', 'python', 'mediapipe', 'blender', 'vscode'],
+    coverImage: '/media/projects/vestigio/portada.webp',
+    coverAlt: {
+      en: 'Luminous golden terracotta clay vessel floating among warm ember particles in Vestigio (ALFAR)',
+      es: 'Vasija de barro dorado luminoso flotando entre partículas cálidas en Vestigio (ALFAR)',
+    },
+    titleLogos: {
+      primary: '/media/projects/vestigio/titulo-alfar.webp',
+    },
+    overviewParagraphs: [
+      {
+        en: 'Vestigio (ALFAR: Arqueologías del Barro) is an interactive digital art installation that reimagines ancestral ceramic craftsmanship through contactless computer-vision hand tracking and real-time procedural 3D mesh sculpting.',
+        es: 'Vestigio (ALFAR: Arqueologías del Barro) es una instalación de arte digital interactivo que reimagina la alfarería ancestral mediante rastreo de manos sin contacto por visión artificial y escultura procedural de mallas 3D en tiempo real.',
+      },
+      {
+        en: 'Using dual-hand skeletal tracking, visitors shape the silhouette, waist, rim, and engraved pre-Columbian geometric bands of a luminous virtual clay vessel simply by moving their hands in mid-air—transforming human gesture into living digital archaeology.',
+        es: 'Mediante el seguimiento esquelético de ambas manos, los visitantes moldean la silueta, cintura, boca y bandas geométricas precolombinas grabadas sobre una vasija de barro virtual luminosa moviendo sus manos en el aire, transformando el gesto humano en arqueología digital viva.',
+      },
+    ],
+    chapters: [
+      {
+        id: 'vestigio-gesture-sculpting',
+        title: {
+          en: 'CONTACTLESS HAND-TRACKED POTTERY',
+          es: 'ALFARERÍA SIN CONTACTO POR RASTREO DE MANOS',
+        },
+        body: [
+          {
+            en: 'A real-time computer-vision pipeline captures 21 skeletal landmarks per hand and streams spatial aperture and height coordinates into the 3D engine. Opening or closing the hands widens or narrows the ceramic vessel profile dynamically while procedural shaders illuminate the wet clay relief.',
+            es: 'Un pipeline de visión artificial en tiempo real captura 21 puntos clave por mano y transmite coordenadas de apertura y altura al motor 3D. Al abrir o cerrar las manos en el aire, el perfil de la vasija se ensancha o estrecha dinámicamente mientras shaders procedurales iluminan el relieve del barro.',
+          },
+        ],
+        mediaIds: ['ves-vessel-hero'],
+      },
+      {
+        id: 'vestigio-exhibition',
+        title: {
+          en: 'EXHIBITION INSTALLATION & ANCESTRAL ENGRAVING',
+          es: 'INSTALACIÓN EXPOSITIVA Y GRABADO ANCESTRAL',
+        },
+        body: [
+          {
+            en: 'Exhibited live within the Memoria y Topofilia showcase at Tecnológico de Artes Débora Arango, the installation invites audiences to sculpt unique vessels adorned with luminous geometric patterns and floating clay-dust particles.',
+            es: 'Exhibida en vivo dentro de la muestra Memoria y Topofilia en el Tecnológico de Artes Débora Arango, la instalación invita al público a esculpir vasijas únicas ornamentadas con patrones geométricos luminosos y partículas de polvo de barro flotantes.',
+          },
+        ],
+        videoId: 'ves-exhibition-live',
+        mediaIds: ['ves-exhibition-wall'],
+      },
+    ],
+    videos: [
+      {
+        id: 'ves-hand-tracking',
+        src: '/media/projects/vestigio/video-hand-tracking.mp4',
+        poster: '/media/projects/vestigio/portada.webp',
+        title: {
+          en: 'Live Dual-Hand Tracking & Procedural Clay Sculpting',
+          es: 'Rastreo Dual de Manos en Vivo y Modelado Procedural',
+        },
+        caption: {
+          en: 'Split-screen capture of real-time skeletal hand tracking driving procedural 3D vessel deformation and engraved geometric bands.',
+          es: 'Captura en pantalla dividida del rastreo esquelético de manos en tiempo real controlando la deformación 3D de la vasija y sus grabados geométricos.',
+        },
+        durationLabel: '00:42',
+      },
+      {
+        id: 'ves-exhibition-live',
+        src: '/media/projects/vestigio/video-exhibition-live.mp4',
+        poster: '/media/projects/vestigio/exhibition-wall.webp',
+        title: {
+          en: 'Live Exhibition Demo — Memoria y Topofilia',
+          es: 'Demostración en Vivo — Memoria y Topofilia',
+        },
+        caption: {
+          en: 'Visitors sculpting virtual clay vessels in real time via contactless hand gestures during live showcase.',
+          es: 'Visitantes moldeando vasijas virtuales en tiempo real mediante gestos sin contacto durante la exhibición en vivo.',
+        },
+        durationLabel: '00:14',
+      },
+      {
+        id: 'ves-vessel-shader',
+        src: '/media/projects/vestigio/video-vessel-shader.mp4',
+        poster: '/media/projects/vestigio/portada.webp',
+        title: {
+          en: 'Procedural Ceramic Deformation & Particle Study',
+          es: 'Estudio de Deformación Cerámica y Partículas',
+        },
+        caption: {
+          en: 'Close-up capture of real-time clay mesh interpolation, specular glaze, and golden ember particles.',
+          es: 'Captura de cerca de la interpolación en tiempo real de la malla de barro, brillo especular y partículas doradas.',
+        },
+        durationLabel: '00:09',
+      },
+      {
+        id: 'ves-concept',
+        src: '/media/projects/vestigio/video-concept.mp4',
+        poster: '/media/projects/vestigio/exhibition-wall.webp',
+        title: {
+          en: 'Large-Scale Spatial Gallery Concept',
+          es: 'Concepto Espacial de Galería a Gran Escala',
+        },
+        caption: {
+          en: 'Architectural projection concept showing full-body spatial interaction with a suspended virtual clay vessel.',
+          es: 'Concepto de proyección arquitectónica mostrando la interacción corporal a gran escala con la vasija virtual suspendida.',
+        },
+        durationLabel: '00:04',
+      },
+    ],
+    gallery: [
+      {
+        id: 'ves-vessel-hero',
+        src: '/media/projects/vestigio/portada.webp',
+        alt: {
+          en: 'Close-up render of luminous golden terracotta vessel amidst warm particle dust',
+          es: 'Render en primer plano de vasija dorada de terracota luminosa entre partículas cálidas',
+        },
+        caption: {
+          en: 'Key Visual — Golden terracotta ceramic vessel with volumetric dust motes.',
+          es: 'Arte Clave — Vasija ceremonial de terracota dorada con motas de polvo volumétricas.',
+        },
+        group: 'pdf-primary',
+        aspect: 'wide',
+      },
+      {
+        id: 'ves-exhibition-wall',
+        src: '/media/projects/vestigio/exhibition-wall.webp',
+        alt: {
+          en: 'Visitor standing before a large gallery projection wall sculpting a glowing clay vessel by hand',
+          es: 'Visitante frente a gran muro de proyección en galería moldeando con las manos una vasija luminosa',
+        },
+        caption: {
+          en: 'Exhibition Staging — Large-format gallery wall interaction concept.',
+          es: 'Montaje Expositivo — Concepto de interacción en muro de gran formato.',
+        },
+        group: 'pdf-primary',
+        aspect: 'wide',
+      },
+    ],
+    theme: {
+      accentHex: '#F59E0B',
+      secondaryHex: '#FB7185',
+      tertiaryHex: '#FDE047',
+      glowRgba: 'rgba(245, 158, 11, 0.36)',
+      shaderPaletteA: [0.96, 0.62, 0.04],
+      shaderPaletteB: [0.78, 0.25, 0.22],
+      shaderPaletteC: [0.22, 0.16, 0.08],
+      labMode: 'vestigio',
+    },
+    interactiveLab: {
+      title: {
+        en: 'VIRTUAL CLAY LATHE & EMBER PARTICLE FIELD',
+        es: 'TORNO VIRTUAL DE BARRO Y CAMPO DE PARTÍCULAS',
+      },
+      subtitle: {
+        en: 'Interactive GLSL Ceramic Relief, Wheel Spin & Terracotta Rim Shader',
+        es: 'Shader GLSL Interactivo de Relieve Cerámico, Torno y Brillo Terracota',
+      },
+      instructions: {
+        en: 'Move your cursor across the vessel to deform the clay surface with rotational potter-wheel waves and adjust the Clay Lathe slider to modulate sculptural relief.',
+        es: 'Desliza el cursor sobre la vasija para deformar la superficie del barro con ondas de torno alfarero y ajusta el control Torno / Relieve.',
       },
     },
   },
