@@ -62,9 +62,9 @@ interface SceneProps {
   contextRestoredTick: number
 }
 
-const DEFAULT_COLOR_A = new THREE.Color(0.18, 1.0, 0.48) // Neon Emerald
-const DEFAULT_COLOR_B = new THREE.Color(0.55, 0.24, 1.0) // Electric Violet
-const DEFAULT_COLOR_C = new THREE.Color(0.08, 0.22, 0.48) // Deep Cobalt
+const DEFAULT_COLOR_A = new THREE.Color(0.0, 1.0, 0.53) // Portfolio AR Neon Emerald (#00FF88)
+const DEFAULT_COLOR_B = new THREE.Color(0.49, 0.23, 0.93) // Electric Violet (#7C3AED)
+const DEFAULT_COLOR_C = new THREE.Color(0.16, 0.07, 0.34) // Portfolio AR Deep Violet Abyss
 
 function assignThemeColors(
   activeTheme: ProjectTheme | null,
@@ -185,6 +185,8 @@ const AtmospherePlane: React.FC<SceneProps> = ({
       uScroll: { value: 0 },
       uHeroFocus: { value: heroFocus ? 1.0 : 0.0 },
       uAmbientPulse: { value: ambientPulse },
+      uLowPower: { value: lowPower ? 1.0 : 0.0 },
+      uReducedMotion: { value: reducedMotion ? 1.0 : 0.0 },
       uColorA: { value: DEFAULT_COLOR_A.clone() },
       uColorB: { value: DEFAULT_COLOR_B.clone() },
       uColorC: { value: DEFAULT_COLOR_C.clone() },
@@ -306,12 +308,14 @@ const AtmospherePlane: React.FC<SceneProps> = ({
 
     const inter = interactionRef.current
     scratchMouse.set(inter.mouseX, 1.0 - inter.mouseY)
-    u.uMouse.value.lerp(scratchMouse, reducedMotion ? 0.04 : 0.14)
+    u.uMouse.value.lerp(scratchMouse, reducedMotion ? 0.04 : 0.08)
     u.uPointerSpeed.value = THREE.MathUtils.lerp(
       u.uPointerSpeed.value,
       reducedMotion ? 0 : inter.speed,
-      0.12
+      0.16
     )
+    u.uLowPower.value = lowPower ? 1.0 : 0.0
+    u.uReducedMotion.value = reducedMotion ? 1.0 : 0.0
     u.uScroll.value = THREE.MathUtils.lerp(
       u.uScroll.value,
       inter.scrollProgress,
@@ -369,12 +373,13 @@ const AtmospherePlane: React.FC<SceneProps> = ({
       u.uHasFluid.value = 0.0
     }
 
-    // Smooth exponential impulse decay (no setTimeout churn on pointer/scroll events)
-    const pointerDecay = Math.pow(0.015, rawDt)
+    // Smooth exponential impulse decay (~0.92 per 60Hz frame, matching Portfolio AR tactile glide)
+    const pointerDecay = Math.pow(0.018, rawDt)
+    const speedDecay = Math.pow(0.0067, rawDt * 0.5)
     const scrollDecay = Math.pow(0.04, rawDt)
     inter.mouseVelX *= pointerDecay
     inter.mouseVelY *= pointerDecay
-    inter.speed *= pointerDecay
+    inter.speed *= speedDecay
     inter.scrollVel *= scrollDecay
   })
 
@@ -1319,7 +1324,7 @@ export const ExperienceCanvas: React.FC<ExperienceCanvasProps> = ({
       inter.mouseY = ny
       inter.mouseVelX = Math.max(-1.6, Math.min(1.6, inter.mouseVelX * 0.4 + dx * 22))
       inter.mouseVelY = Math.max(-1.6, Math.min(1.6, inter.mouseVelY * 0.4 + dy * 22))
-      inter.speed = Math.min(1.8, Math.hypot(dx, dy) * 30)
+      inter.speed = Math.min(1.2, inter.speed + Math.hypot(dx, dy) * 3.8)
 
       lastX = nx
       lastY = ny

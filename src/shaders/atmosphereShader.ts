@@ -1,5 +1,5 @@
 // ============================================================================
-// 1. VOLUMETRIC STUDIO ATMOSPHERE + IRIDESCENT FLUID CAUSTICS + ACES TONE MAP
+// 1. REACTIVE DOMAIN-WARPED FLUID BACKGROUND (PORTFOLIO AR DNA) + FBO WAKE
 // ============================================================================
 
 export const ATMOSPHERE_VERTEX_SHADER = /* glsl */ `
@@ -22,25 +22,34 @@ export const ATMOSPHERE_FRAGMENT_SHADER = /* glsl */ `
   uniform float uScroll;
   uniform float uHeroFocus;
   uniform float uAmbientPulse;
+  uniform float uLowPower;
+  uniform float uReducedMotion;
   uniform vec3 uColorA;
   uniform vec3 uColorB;
   uniform vec3 uColorC;
   uniform sampler2D uFluidTex;
   uniform float uHasFluid;
 
-  float hash(vec2 p) {
+  float hash12(vec2 p) {
     float result = fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
     return result;
   }
 
-  float noise(vec2 p) {
+  // 2D Gradient Perlin-style hash & noise (silky organic liquid ribbons from Portfolio AR)
+  vec2 gradHash(vec2 p) {
+    vec2 q = vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)));
+    vec2 result = -1.0 + 2.0 * fract(sin(q) * 43758.5453123);
+    return result;
+  }
+
+  float gradNoise(vec2 p) {
     vec2 i = floor(p);
     vec2 f = fract(p);
     vec2 u = f * f * (3.0 - 2.0 * f);
-    float a = hash(i);
-    float b = hash(i + vec2(1.0, 0.0));
-    float c = hash(i + vec2(0.0, 1.0));
-    float d = hash(i + vec2(1.0, 1.0));
+    float a = dot(gradHash(i + vec2(0.0, 0.0)), f - vec2(0.0, 0.0));
+    float b = dot(gradHash(i + vec2(1.0, 0.0)), f - vec2(1.0, 0.0));
+    float c = dot(gradHash(i + vec2(0.0, 1.0)), f - vec2(0.0, 1.0));
+    float d = dot(gradHash(i + vec2(1.0, 1.0)), f - vec2(1.0, 1.0));
     float result = mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
     return result;
   }
@@ -48,13 +57,30 @@ export const ATMOSPHERE_FRAGMENT_SHADER = /* glsl */ `
   float fbm(vec2 p) {
     float v = 0.0;
     float a = 0.5;
-    mat2 rot = mat2(0.8, 0.6, -0.6, 0.8);
+    mat2 rot = mat2(0.80, 0.60, -0.60, 0.80);
     for (int i = 0; i < 4; i++) {
-      v += a * noise(p);
-      p = rot * p * 2.02 + vec2(13.1, 7.7);
+      if (i == 3 && uLowPower > 0.5) {
+        break;
+      }
+      v += a * gradNoise(p);
+      p = rot * p * 2.03;
       a *= 0.5;
     }
     return v;
+  }
+
+  // Triple-stage recursive domain warping (ferrofluid / liquid marble filaments)
+  float fluidField(vec2 p, float t) {
+    vec2 q = vec2(
+      fbm(p + vec2(0.0, t * 0.16)),
+      fbm(p + vec2(4.2, -t * 0.12))
+    );
+    vec2 r = vec2(
+      fbm(p + 3.2 * q + vec2(1.7, 9.2) + 0.14 * t),
+      fbm(p + 3.2 * q + vec2(8.3, 2.8) - 0.11 * t)
+    );
+    float result = fbm(p + 2.6 * r);
+    return result;
   }
 
   vec3 acesFilm(vec3 x) {
@@ -71,9 +97,11 @@ export const ATMOSPHERE_FRAGMENT_SHADER = /* glsl */ `
     vec2 uv = vUv;
     float aspect = uResolution.x / max(uResolution.y, 1.0);
     vec2 p = (uv - 0.5) * vec2(aspect, 1.0);
-    vec2 m = (uMouse - 0.5) * vec2(aspect, 1.0);
+    vec2 ptr = (uMouse - 0.5) * vec2(aspect, 1.0);
 
-    // Central-difference fluid sampling for silky optical refraction normals & curl
+    float t = uTime * mix(1.0, 0.15, clamp(uReducedMotion, 0.0, 1.0));
+
+    // Sample live ping-pong FBO fluid velocity & trailing energy wake
     vec2 stepUv = vec2(0.0042, 0.0042);
     vec4 fluidC = texture2D(uFluidTex, uv);
     vec4 fluidL = texture2D(uFluidTex, clamp(uv - vec2(stepUv.x, 0.0), 0.0, 1.0));
@@ -84,128 +112,91 @@ export const ATMOSPHERE_FRAGMENT_SHADER = /* glsl */ `
     vec2 fluidVel = (fluidC.rg * 2.0 - 1.0) * uHasFluid;
     float fluidEnergy = fluidC.b * uHasFluid;
     float fluidRipple = fluidC.a * uHasFluid;
-
     vec2 fluidGrad = vec2(
-      (fluidR.b - fluidL.b) + (fluidR.a - fluidL.a) * 1.65,
-      (fluidT.b - fluidB.b) + (fluidT.a - fluidB.a) * 1.65
+      (fluidR.b - fluidL.b) + (fluidR.a - fluidL.a) * 1.45,
+      (fluidT.b - fluidB.b) + (fluidT.a - fluidB.a) * 1.45
     ) * 0.5 * uHasFluid;
 
-    float fluidCurl = (
-      ((fluidR.g - fluidL.g) - (fluidT.r - fluidB.r)) * 2.0
-    ) * uHasFluid;
+    // Exact tactile mouse distortion + lingering FBO wake & subtle scroll drift
+    vec2 toPtr = p - ptr;
+    float dist = length(toPtr);
+    float velNorm = clamp(uPointerSpeed, 0.0, 1.2);
+    float influence = exp(-dist * 3.2) * (0.14 + velNorm * 0.45);
+    vec2 scrollOffset = vec2(0.0, -uScroll * 0.65);
 
-    float distMouse = length(p - m);
-    float mouseInfluence = exp(-distMouse * 2.85) * (0.26 + min(uPointerSpeed * 0.42, 0.52));
+    vec2 warpedUv =
+      (p + scrollOffset) * 1.55 -
+      normalize(toPtr + vec2(0.0001)) * influence -
+      fluidVel * 0.24 +
+      fluidGrad * 0.30;
 
-    // Preserve razor-sharp left-side Hero typography contrast while letting center/right & cursor shine
+    // Prismatic RGB chromatic refraction split around mouse distortion & fluid wake
+    float chroma = 0.014 + influence * 0.16 + fluidEnergy * 0.045;
+    float fR = fluidField(warpedUv + vec2(chroma, 0.0), t);
+    float fG = fluidField(warpedUv, t);
+    float fB = fluidField(warpedUv - vec2(chroma, 0.0), t);
+
+    // Theme-reactive palette anchored to Portfolio AR's obsidian / violet / neon-emerald / silver DNA
+    vec3 colObsidian = vec3(0.02, 0.025, 0.032);
+    vec3 colDeepFluid = mix(uColorC, uColorB * 0.38, 0.42);
+    vec3 colNeon = uColorA;
+    vec3 colSilver = mix(vec3(0.84, 0.96, 0.91), vec3(0.96, 0.97, 1.0), 0.22);
+
+    float nR = smoothstep(-0.35, 0.65, fR);
+    float nG = smoothstep(-0.35, 0.65, fG);
+    float nB = smoothstep(-0.35, 0.65, fB);
+
     float heroAmt = clamp(uHeroFocus, 0.0, 1.0);
-    float stageWeight = mix(
-      0.86,
-      mix(0.44, 1.12, smoothstep(-0.52 * aspect, 0.28 * aspect, p.x)),
-      heroAmt
+    // Full vivid Portfolio AR fluid in Hero; slightly calmer contrast inside project chapters for crisp reading
+    float intensityScale = mix(0.58, 1.0, heroAmt);
+
+    vec3 color = colObsidian;
+    color = mix(color, colDeepFluid, smoothstep(0.15, 0.85, nB) * (0.76 * intensityScale));
+
+    // Luminous topographic liquid-neon ridges + chromatic dispersion fringes
+    float ridgeR = pow(max(clamp(1.0 - abs(fR * 2.2), 0.0, 1.0), 0.0001), 4.0);
+    float ridgeG = pow(max(clamp(1.0 - abs(fG * 2.2), 0.0, 1.0), 0.0001), 4.0);
+    float ridgeB = pow(max(clamp(1.0 - abs(fB * 2.2), 0.0, 1.0), 0.0001), 4.0);
+
+    float ridgeBoost = (0.36 + influence * 1.15 + fluidEnergy * 0.38 + uAmbientPulse * 0.16) * intensityScale;
+    color += colNeon * ridgeG * ridgeBoost;
+
+    // Subtle RGB chromatic dispersion edge glow along perturbed ridges
+    vec3 chromaFringe = vec3(
+      max(ridgeR - ridgeG, 0.0),
+      0.0,
+      max(ridgeB - ridgeG, 0.0)
     );
-    float cursorStageBoost = exp(-distMouse * 2.4) * (0.45 + fluidEnergy * 0.55);
-    float lightAllowance = clamp(stageWeight + cursorStageBoost * 0.55, 0.36, 1.35);
+    color += mix(uColorB, colSilver, 0.35) * (chromaFringe.r + chromaFringe.b) * (0.28 + influence * 0.75) * intensityScale;
 
-    // Domain-warped velvet studio atmosphere advected by live ping-pong fluid field
-    float t = uTime * 0.125 + uScroll * 1.4;
-    vec2 advectedP = p - fluidVel * 0.34 + fluidGrad * 0.52;
+    // Silvery specular silk crests & FBO capillary caustic shimmer
+    float silverCrest = pow(max(clamp(nR * nG, 0.0, 1.0), 0.0001), 3.0);
+    color += colSilver * silverCrest * (0.22 + fluidRipple * 0.16) * intensityScale;
 
-    vec2 q = vec2(
-      fbm(advectedP * 1.52 + vec2(t * 0.52, -t * 0.28)),
-      fbm(advectedP * 1.52 + vec2(-t * 0.35, t * 0.46) + vec2(5.2, 1.3))
-    );
-
-    vec2 dir = normalize(p - m + vec2(0.0001));
-    vec2 warp = advectedP + q * 0.54 + dir * mouseInfluence * 0.14;
-
-    // Chromatic dispersion across fluid refraction gradients (iridescent caustic split)
-    vec2 chromaOffset = fluidGrad * 0.92 + fluidVel * 0.068;
-    float fR = fbm((warp + chromaOffset) * 1.88 + vec2(t * 0.32));
-    float fG = fbm(warp * 1.88 + vec2(t * 0.32));
-    float fB = fbm((warp - chromaOffset) * 1.88 + vec2(t * 0.32));
-    float f2 = fbm(warp * 2.52 - q * 1.32 - vec2(t * 0.24));
-
-    float chapterCalm = mix(0.74, 1.0, heroAmt);
-
-    // Deep cinema obsidian soundstage base + atmospheric depth fog
-    vec3 baseBg = vec3(0.015, 0.018, 0.032);
-    float horizonFog = smoothstep(0.62, -0.58, p.y) * (0.11 + 0.05 * heroAmt);
-    vec3 depthFogCol = mix(uColorC, uColorB, 0.32) * horizonFog * (0.55 + 0.45 * f2);
-
-    vec3 auraA = uColorA * smoothstep(0.30, 0.92, fG) * (0.20 * chapterCalm * lightAllowance);
-    vec3 auraB = uColorB * smoothstep(0.36, 0.95, f2) * (0.18 * chapterCalm * lightAllowance);
-    vec3 auraC = uColorC * smoothstep(0.42, 0.96, fG * f2 * 1.78) * (0.19 * chapterCalm);
-
-    // Volumetric Studio Light Shafts (diagonal gallery god-rays cutting through fBM mist)
-    vec2 rayOrigin = vec2(0.44 * aspect + (m.x * 0.08), 0.68);
-    vec2 toFrag = p - rayOrigin;
-    float rayAngle = atan(toFrag.y, toFrag.x);
-    float rayDist = length(toFrag);
-    float mistSample = fbm(vec2(rayAngle * 3.8 + t * 0.22, rayDist * 1.35 - t * 0.34));
-    float shaftBandA = pow(max(0.0001, cos((rayAngle + 2.18) * 3.2 + sin(t * 0.4) * 0.18)), 5.0);
-    float shaftBandB = pow(max(0.0001, cos((rayAngle + 1.82) * 5.0 - t * 0.16)), 7.0);
-    float shaftEnvelope = exp(-rayDist * 0.72) * smoothstep(-0.68 * aspect, 0.18 * aspect, p.x);
-    float volumetricMask = (shaftBandA * 0.72 + shaftBandB * 0.46) * (0.45 + 0.55 * mistSample) * shaftEnvelope;
-    vec3 volumetricShafts =
-      mix(uColorA, vec3(0.92, 0.96, 1.0), 0.35) * volumetricMask * (0.15 + 0.10 * heroAmt + uAmbientPulse * 0.08) +
-      uColorB * shaftBandB * shaftEnvelope * mistSample * 0.09;
-
-    // Lush iridescent fluid caustics & luminous velvet smoke trails
     float gradMag = length(fluidGrad);
-    float causticRidge = pow(max(clamp(gradMag * 5.6, 0.0, 1.0), 0.0001), 1.45);
-    vec3 causticSplit = vec3(
-      smoothstep(0.38, 0.88, fR),
-      smoothstep(0.38, 0.88, fG),
-      smoothstep(0.38, 0.88, fB)
-    );
+    float causticWake = pow(max(clamp(gradMag * 4.8, 0.0, 1.0), 0.0001), 1.5);
+    color += mix(colNeon, colSilver, 0.4) * causticWake * (0.18 + fluidRipple * 0.24) * intensityScale;
 
-    float iridPhase = 6.28318 * (fluidEnergy * 1.15 + fluidRipple * 0.95 + abs(fluidCurl) * 0.85 + uTime * 0.075);
-    vec3 iridSpectrum = 0.5 + 0.5 * cos(iridPhase + vec3(0.0, 2.094, 4.188));
-    vec3 fluidTint = mix(uColorA, uColorB, clamp(fluidRipple * 1.15 + 0.22, 0.0, 1.0));
-    vec3 velvetSmoke =
-      mix(fluidTint, mix(uColorC, iridSpectrum, 0.52), 0.38) *
-      (fluidEnergy * 0.48 + abs(fluidCurl) * 0.22) *
-      (0.55 + 0.45 * causticSplit);
+    // Immediate luminous cursor / touch field glow
+    float touchGlow = exp(-dist * 4.5) * (0.22 + velNorm * 0.16);
+    color += colNeon * touchGlow * intensityScale;
 
-    vec3 causticSpecular =
-      mix(mix(uColorA, iridSpectrum, 0.45), vec3(0.98, 0.99, 1.0), 0.48) *
-      causticRidge * (0.34 + fluidRipple * 0.42 + uAmbientPulse * 0.16);
+    // Cinema vignette matching Portfolio AR framing
+    float vig = smoothstep(1.25, 0.20, length((uv - 0.5) * vec2(1.15, 1.0)));
+    color *= mix(0.45, 1.0, vig);
 
-    vec3 caustics = (velvetSmoke + causticSpecular + causticSplit * fluidTint * fluidRipple * 0.32) * mix(0.65, 1.15, lightAllowance);
+    // Smooth ACES Filmic highlight roll-off so neon ridges stay vivid without harsh clipping
+    vec3 finalCol = acesFilm(color * 1.12);
 
-    // Subtle cinema anamorphic bloom streak anchored behind the sculpture focal zone
-    vec2 focalCenter = vec2(mix(0.32, 0.22, heroAmt) * aspect, 0.03);
-    vec2 toFocal = p - focalCenter;
-    float anamorphicStreak =
-      exp(-abs(toFocal.y) * 12.5) * exp(-abs(toFocal.x) * 1.45) * (0.085 + 0.065 * heroAmt + uAmbientPulse * 0.07);
-    float cursorStreak =
-      exp(-abs(p.y - m.y) * 18.0) * exp(-abs(p.x - m.x) * 2.8) * (fluidEnergy * 0.14 + min(uPointerSpeed * 0.06, 0.09));
-    vec3 anamorphicBloom =
-      mix(uColorA, uColorB, 0.45) * anamorphicStreak +
-      mix(uColorB, vec3(0.95, 0.98, 1.0), 0.35) * cursorStreak;
-
-    // Soft responsive cursor luminous halo
-    vec3 cursorGlow =
-      mix(uColorA, uColorB, 0.5) * exp(-distMouse * 3.7) * (0.14 + fluidEnergy * 0.14 + min(uPointerSpeed * 0.08, 0.10));
-
-    // Combine linear HDR radiance -> cinema depth vignette -> ACES Filmic Tone Mapping
-    vec3 hdrCol = baseBg + depthFogCol + auraA + auraB + auraC + volumetricShafts + caustics + anamorphicBloom + cursorGlow;
-
-    float vignette = 1.0 - smoothstep(0.45, 1.38, length((uv - 0.5) * vec2(aspect * 0.86, 1.05))) * 0.46;
-    vec3 col = acesFilm(hdrCol * vignette * 1.12);
-
-    // Subtle editorial halftone dot modulation near periphery (displaced gently by fluid velocity)
-    vec2 halftoneCoord = gl_FragCoord.xy + fluidVel * 4.5;
+    // Subtle editorial halftone dot modulation near periphery + fine organic grain
+    vec2 halftoneCoord = gl_FragCoord.xy + fluidVel * 4.0;
     vec2 gridUv = fract(halftoneCoord / 14.0) - 0.5;
     float dotDist = length(gridUv);
-    float edgeMask = smoothstep(0.32, 0.82, length(uv - 0.5));
-    float halftone = smoothstep(0.14, 0.055, dotDist) * edgeMask * (0.034 + fluidRipple * 0.024);
+    float edgeMask = smoothstep(0.36, 0.86, length(uv - 0.5));
+    float halftone = smoothstep(0.14, 0.055, dotDist) * edgeMask * (0.028 + fluidRipple * 0.018);
+    float grain = (hash12(gl_FragCoord.xy + fract(uTime * 19.3) * 100.0) - 0.5) * 0.018;
 
-    // Organic fine editorial film grain (dithered post-tonemap)
-    float grain = (hash(gl_FragCoord.xy + fract(uTime * 19.3) * 100.0) - 0.5) * 0.020;
-
-    gl_FragColor = vec4(clamp(col + vec3(halftone) + grain, 0.0, 1.0), 1.0);
+    gl_FragColor = vec4(clamp(finalCol + vec3(halftone) + grain, 0.0, 1.0), 1.0);
   }
 `
 
