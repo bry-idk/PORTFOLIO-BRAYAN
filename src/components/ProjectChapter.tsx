@@ -1,6 +1,15 @@
-import React, { useState } from 'react'
-import { motion } from 'framer-motion'
-import { Award, ChevronDown, ChevronUp, Cpu, Layers, Monitor } from 'lucide-react'
+import React, { useEffect, useRef, useState } from 'react'
+import gsap from 'gsap'
+import { ScrollTrigger } from 'gsap/ScrollTrigger'
+import {
+  ArrowRight,
+  Award,
+  ChevronDown,
+  ChevronUp,
+  Cpu,
+  Layers,
+  Monitor,
+} from 'lucide-react'
 import { PROFILE_DATA } from '../data/profileData'
 import { PROJECTS_DATA } from '../data/projectsData'
 import { Lang, MediaAsset, ProjectData } from '../types/portfolio'
@@ -9,18 +18,36 @@ import { SoftwareIconBadge } from './SoftwareIconBadge'
 import { VideoPlayer } from './VideoPlayer'
 import { InteractiveProjectLab } from './webgl/InteractiveProjectLab'
 
-interface Props {
+gsap.registerPlugin(ScrollTrigger)
+
+export interface NextProjectLink {
+  slug: string
+  indexLabel: string
+  title: string
+  accentHex: string
+}
+
+export interface ProjectChapterProps {
   project: ProjectData
   lang: Lang
   onOpenLightbox: (items: MediaAsset[], index: number) => void
+  onJumpTo?: (selector: string) => void
+  nextProject?: NextProjectLink | null
+  soundEnabled?: boolean
 }
 
-export const ProjectChapter: React.FC<Props> = ({
+export const ProjectChapter: React.FC<ProjectChapterProps> = ({
   project,
   lang,
   onOpenLightbox,
+  onJumpTo,
+  nextProject = null,
+  soundEnabled = false,
 }) => {
-  const [showArchiveExtras, setShowArchiveExtras] = useState(true)
+  const [showArchiveExtras, setShowArchiveExtras] = useState(false)
+  const articleRef = useRef<HTMLElement>(null)
+  const watermarkRef = useRef<HTMLDivElement>(null)
+  const coverRef = useRef<HTMLDivElement>(null)
 
   const linkedAwards = PROFILE_DATA.awards.filter((a) =>
     project.awardRefs?.includes(a.id)
@@ -29,6 +56,7 @@ export const ProjectChapter: React.FC<Props> = ({
   const mediaMap = new Map(project.gallery.map((m) => [m.id, m]))
   const videoMap = new Map(project.videos.map((v) => [v.id, v]))
   const totalProjectsLabel = String(PROJECTS_DATA.length).padStart(2, '0')
+  const isEvenOrder = project.order % 2 === 0
 
   const primaryVideoIdByProject: Partial<Record<ProjectData['id'], string>> = {
     'cronicas-de-palenque': 'palenque-main',
@@ -60,6 +88,59 @@ export const ProjectChapter: React.FC<Props> = ({
     (m) => !usedInChapters.has(m.id)
   )
 
+  // Subtle museum-grade GSAP ScrollTrigger parallax & editorial motion
+  // Respects prefers-reduced-motion, cleans up via gsap.context(), and never hides content at opacity: 0
+  useEffect(() => {
+    const el = articleRef.current
+    if (!el || typeof window === 'undefined') return
+
+    const prefersReduced =
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (prefersReduced) return
+
+    // Skip in headless/jsdom environments where layout dimensions are 0
+    if (el.getBoundingClientRect().height <= 0) return
+
+    const ctx = gsap.context(() => {
+      if (watermarkRef.current) {
+        gsap.fromTo(
+          watermarkRef.current,
+          { y: -28 },
+          {
+            y: 38,
+            ease: 'none',
+            scrollTrigger: {
+              trigger: el,
+              start: 'top bottom',
+              end: 'bottom top',
+              scrub: 0.6,
+            },
+          }
+        )
+      }
+
+      if (coverRef.current) {
+        gsap.fromTo(
+          coverRef.current,
+          { y: 18 },
+          {
+            y: -18,
+            ease: 'none',
+            scrollTrigger: {
+              trigger: coverRef.current,
+              start: 'top bottom',
+              end: 'bottom top',
+              scrub: 0.5,
+            },
+          }
+        )
+      }
+    }, articleRef)
+
+    return () => ctx.revert()
+  }, [])
+
   const openAssetInFullGallery = (assetId: string) => {
     const idx = project.gallery.findIndex((g) => g.id === assetId)
     onOpenLightbox(project.gallery, idx >= 0 ? idx : 0)
@@ -67,86 +148,123 @@ export const ProjectChapter: React.FC<Props> = ({
 
   return (
     <article
+      ref={articleRef}
       id={`project-${project.slug}`}
       data-project-id={project.id}
-      className="relative scroll-mt-24 overflow-x-clip border-t border-white/10 py-20 sm:py-28"
+      className="relative scroll-mt-32 overflow-x-clip py-24 sm:py-32"
     >
-      {/* Subtle project-specific ambient radial aura */}
+      {/* Crisp 1px architectural chapter divider with accent fade */}
       <div
-        className="pointer-events-none absolute top-16 right-0 h-[420px] w-[420px] rounded-full opacity-20 blur-[140px]"
-        style={{ background: project.theme.accentHex }}
         aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-0 h-px"
+        style={{
+          background: `linear-gradient(90deg, transparent 0%, ${project.theme.accentHex}70 22%, rgba(255,255,255,0.12) 60%, transparent 100%)`,
+        }}
       />
 
+      {/* Rich ambient project chromatic bleed */}
+      <div
+        aria-hidden="true"
+        className={`pointer-events-none absolute top-12 h-[480px] w-[480px] rounded-full opacity-[0.16] blur-[155px] ${
+          isEvenOrder ? '-left-24' : '-right-24'
+        }`}
+        style={{ background: project.theme.accentHex }}
+      />
+      <div
+        aria-hidden="true"
+        className={`pointer-events-none absolute bottom-24 h-[360px] w-[360px] rounded-full opacity-[0.09] blur-[140px] ${
+          isEvenOrder ? 'right-0' : 'left-0'
+        }`}
+        style={{ background: project.theme.secondaryHex }}
+      />
+
+      {/* Oversized atmospheric watermark numeral */}
+      <div
+        ref={watermarkRef}
+        aria-hidden="true"
+        className={`pointer-events-none absolute top-6 z-0 select-none font-display text-[clamp(7.5rem,20vw,16rem)] font-extrabold leading-none tracking-tighter text-stroke-subtle opacity-[0.14] ${
+          isEvenOrder ? 'left-2 sm:left-8' : 'right-2 sm:right-8'
+        }`}
+      >
+        {project.indexLabel}
+      </div>
+
       <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-8 lg:px-12">
-        {/* ======================== PROJECT HEADER ======================== */}
-        <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: '-80px' }}
-          transition={{ duration: 0.65 }}
-          className="mb-12"
-        >
-          <div className="mb-4 flex flex-wrap items-center gap-2.5">
+        {/* ======================== EDITORIAL EXHIBITION HEADER ======================== */}
+        <header className="mb-14 border-b border-white/[0.08] pb-10">
+          {/* Architectural Metadata Rail */}
+          <div className="mb-6 flex flex-wrap items-center gap-x-4 gap-y-2 font-mono text-[11px] tracking-[0.18em] uppercase">
             <span
-              className="rounded-full border px-3.5 py-1 font-mono text-xs font-bold tracking-widest uppercase"
-              style={{
-                borderColor: `${project.theme.accentHex}66`,
-                backgroundColor: `${project.theme.accentHex}1A`,
-                color: project.theme.accentHex,
-              }}
+              className="inline-flex items-center gap-2 font-bold"
+              style={{ color: project.theme.accentHex }}
             >
-              {project.indexLabel} / {totalProjectsLabel} · {project.pdfPages}
+              <span
+                className="h-1.5 w-1.5 rounded-full"
+                style={{
+                  backgroundColor: project.theme.accentHex,
+                  boxShadow: `0 0 10px ${project.theme.accentHex}`,
+                }}
+              />
+              {project.indexLabel} / {totalProjectsLabel}
             </span>
-            <span className="rounded-full border border-white/15 bg-white/[0.04] px-3.5 py-1 font-mono text-xs text-zinc-300">
-              {project.projectType[lang]}
-            </span>
+            <span className="text-white/20">/</span>
+            <span className="text-zinc-400">{project.pdfPages}</span>
+            <span className="text-white/20">/</span>
+            <span className="text-zinc-200">{project.projectType[lang]}</span>
             {project.studioOrContext && (
-              <span className="rounded-full border border-white/10 bg-white/[0.02] px-3.5 py-1 font-mono text-xs text-zinc-400">
-                {project.studioOrContext[lang]}
-              </span>
+              <>
+                <span className="hidden text-white/20 sm:inline">/</span>
+                <span className="text-zinc-400">
+                  {project.studioOrContext[lang]}
+                </span>
+              </>
             )}
           </div>
 
           {/* Differentiated Title Lockups per Project */}
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-            <div>
+          <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
+            <div className="min-w-0">
               {project.id === 'kane-no-hibiki' && project.titleLogos ? (
-                <div className="flex flex-wrap items-center gap-6">
+                <div className="mb-5 flex flex-wrap items-center gap-6">
                   <img
                     src={project.titleLogos.primary}
                     alt="Kane no Hibiki"
-                    className="h-16 w-auto object-contain drop-shadow-[0_6px_24px_rgba(251,113,133,0.35)] sm:h-24"
+                    decoding="async"
+                    className="h-14 w-auto object-contain drop-shadow-[0_6px_24px_rgba(251,113,133,0.35)] sm:h-20"
                   />
                   {project.titleLogos.secondary && (
                     <img
                       src={project.titleLogos.secondary}
                       alt="鐘の響き"
-                      className="h-14 w-auto object-contain opacity-90 sm:h-20"
+                      decoding="async"
+                      className="h-12 w-auto object-contain opacity-90 sm:h-16"
                     />
                   )}
                 </div>
               ) : project.id === 'sogno' && project.titleLogos ? (
-                <div className="flex flex-wrap items-center gap-5">
+                <div className="mb-5 flex flex-wrap items-center gap-5">
                   <img
                     src={project.titleLogos.primary}
                     alt="SOGNO"
-                    className="h-14 w-auto object-contain sm:h-20"
+                    decoding="async"
+                    className="h-12 w-auto object-contain sm:h-[4.5rem]"
                   />
                   {project.titleLogos.secondary && (
                     <img
                       src={project.titleLogos.secondary}
                       alt="SOGNO 2"
-                      className="h-16 w-auto object-contain sm:h-24"
+                      decoding="async"
+                      className="h-14 w-auto object-contain sm:h-20"
                     />
                   )}
                 </div>
               ) : project.id === 'notas-y-colores' && project.titleLogos ? (
-                <div className="flex flex-wrap items-center gap-5">
+                <div className="mb-5 flex flex-wrap items-center gap-5">
                   <img
                     src={project.titleLogos.primary}
                     alt="Notas & Colores"
-                    className="h-24 w-auto object-contain drop-shadow-[0_12px_30px_rgba(236,72,153,0.35)] sm:h-32"
+                    decoding="async"
+                    className="h-20 w-auto object-contain drop-shadow-[0_12px_30px_rgba(236,72,153,0.35)] sm:h-28"
                   />
                   <span className="font-mono text-xs tracking-widest text-cyan-300 uppercase">
                     Un viaje por la Música
@@ -157,25 +275,23 @@ export const ProjectChapter: React.FC<Props> = ({
                 <img
                   src={project.titleLogos.primary}
                   alt="The Amazing Digital Circus 2"
-                  className="h-24 w-auto object-contain drop-shadow-[0_12px_28px_rgba(239,68,68,0.35)] sm:h-36"
+                  decoding="async"
+                  className="mb-5 h-20 w-auto object-contain drop-shadow-[0_12px_28px_rgba(239,68,68,0.35)] sm:h-32"
                 />
               ) : project.id === 'vestigio' && project.titleLogos ? (
                 <img
                   src={project.titleLogos.primary}
                   alt="ALFAR: Arqueologías del Barro"
-                  className="h-20 w-auto object-contain drop-shadow-[0_10px_28px_rgba(245,158,11,0.3)] sm:h-28"
+                  decoding="async"
+                  className="mb-5 h-16 w-auto object-contain drop-shadow-[0_10px_28px_rgba(245,158,11,0.3)] sm:h-24"
                 />
               ) : null}
 
-              <h2
-                className={`font-display text-4xl font-extrabold tracking-tight text-white sm:text-6xl ${
-                  project.titleLogos ? 'mt-4' : ''
-                }`}
-              >
+              <h2 className="font-display text-[clamp(2.15rem,5.2vw,4.25rem)] font-extrabold leading-[1.03] tracking-tight text-white break-words">
                 {project.title}
                 {project.nativeTitle && (
                   <span
-                    className="ml-3 text-2xl font-semibold sm:text-4xl"
+                    className="ml-3 text-[0.58em] font-semibold"
                     style={{ color: project.theme.accentHex }}
                   >
                     {project.nativeTitle}
@@ -185,18 +301,18 @@ export const ProjectChapter: React.FC<Props> = ({
             </div>
 
             {linkedAwards.length > 0 && (
-              <div className="flex flex-col gap-2">
+              <div className="flex shrink-0 flex-col gap-2">
                 {linkedAwards.map((aw) => (
                   <div
                     key={aw.id}
-                    className="inline-flex items-center gap-2.5 rounded-2xl border border-[#2EFF7B]/35 bg-[#2EFF7B]/10 px-4 py-2.5 backdrop-blur-md"
+                    className="inline-flex items-center gap-3 rounded-xl border border-[#2EFF7B]/30 bg-[#2EFF7B]/[0.06] px-4 py-2.5 backdrop-blur-md"
                   >
                     <Award className="h-4 w-4 shrink-0 text-[#2EFF7B]" />
                     <div className="text-xs">
-                      <p className="font-semibold text-white">
+                      <p className="font-sans font-semibold text-white">
                         {aw.title[lang]}
                       </p>
-                      <p className="font-mono text-[10px] text-zinc-300">
+                      <p className="font-mono text-[10px] text-zinc-400">
                         {aw.project} · {aw.venue}
                       </p>
                     </div>
@@ -205,75 +321,99 @@ export const ProjectChapter: React.FC<Props> = ({
               </div>
             )}
           </div>
-        </motion.div>
+        </header>
 
-        {/* ======================== OVERVIEW & COVER GRID ======================== */}
-        <div className="grid items-start gap-8 lg:grid-cols-12">
-          {/* Left: Overview & Tech Specs */}
-          <div className="space-y-6 rounded-3xl border border-white/10 bg-[#0A0C13]/85 p-6 backdrop-blur-xl sm:p-8 lg:col-span-7">
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+        {/* ======================== ASYMMETRIC OVERVIEW & COVER COMPOSITION ======================== */}
+        <div className="grid items-start gap-10 lg:grid-cols-12 lg:gap-12">
+          {/* Editorial Overview & Technical Dossier */}
+          <div
+            className={`min-w-0 space-y-8 lg:col-span-7 ${
+              isEvenOrder ? 'lg:order-2' : 'lg:order-1'
+            }`}
+          >
+            <div className="flex items-center justify-between border-b border-white/[0.08] pb-3">
               <h3
-                className="font-mono text-xs font-bold tracking-[0.24em] uppercase"
+                className="font-mono text-[11px] font-bold tracking-[0.26em] uppercase"
                 style={{ color: project.theme.accentHex }}
               >
                 {lang === 'en' ? 'OVERVIEW' : 'VISIÓN GENERAL'}
               </h3>
               <span className="font-mono text-[11px] text-zinc-500">
-                #{project.order}
+                EXHIBIT #{project.indexLabel}
               </span>
             </div>
 
-            <div className="space-y-4 text-base leading-relaxed text-zinc-200 sm:text-[17px]">
+            <div className="space-y-5 text-base leading-[1.75] text-zinc-200 sm:text-[17.5px]">
               {project.overviewParagraphs.map((para, i) => (
-                <p key={i}>{para[lang]}</p>
+                <p
+                  key={i}
+                  className={
+                    i === 0 ? 'text-zinc-100 sm:text-[18.5px]' : 'text-zinc-300'
+                  }
+                >
+                  {para[lang]}
+                </p>
               ))}
             </div>
 
-            {/* Technical Metadata Pills */}
-            <div className="grid gap-4 border-t border-white/10 pt-5 sm:grid-cols-2">
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                <div className="mb-1.5 flex items-center gap-2 font-mono text-[11px] text-zinc-400 uppercase">
-                  <Layers className="h-3.5 w-3.5" style={{ color: project.theme.accentHex }} />
-                  <span>{lang === 'en' ? 'Project Type' : 'Tipo de Proyecto'}</span>
+            {/* Architectural Hairline Technical Spec Sheet */}
+            <div className="grid gap-y-5 border-t border-white/[0.08] pt-6 sm:grid-cols-2 sm:gap-x-8">
+              <div className="border-l border-white/15 pl-4">
+                <div className="mb-1 flex items-center gap-2 font-mono text-[10px] tracking-[0.2em] text-zinc-500 uppercase">
+                  <Layers
+                    className="h-3.5 w-3.5"
+                    style={{ color: project.theme.accentHex }}
+                  />
+                  <span>
+                    {lang === 'en' ? 'Project Type' : 'Tipo de Proyecto'}
+                  </span>
                 </div>
-                <p className="text-sm font-semibold text-white">
+                <p className="font-sans text-sm font-medium text-white">
                   {project.projectType[lang]}
                 </p>
               </div>
 
               {project.platforms && (
-                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                  <div className="mb-1.5 flex items-center gap-2 font-mono text-[11px] text-zinc-400 uppercase">
-                    <Monitor className="h-3.5 w-3.5" style={{ color: project.theme.secondaryHex }} />
+                <div className="border-l border-white/15 pl-4">
+                  <div className="mb-1 flex items-center gap-2 font-mono text-[10px] tracking-[0.2em] text-zinc-500 uppercase">
+                    <Monitor
+                      className="h-3.5 w-3.5"
+                      style={{ color: project.theme.secondaryHex }}
+                    />
                     <span>{lang === 'en' ? 'Platforms' : 'Plataformas'}</span>
                   </div>
-                  <p className="text-sm font-semibold text-white">
+                  <p className="font-sans text-sm font-medium text-white">
                     {project.platforms[lang]}
                   </p>
                 </div>
               )}
 
               <div
-                className={`rounded-2xl border border-white/10 bg-white/[0.03] p-4 ${
+                className={`border-l border-white/15 pl-4 ${
                   project.platforms ? 'sm:col-span-2' : ''
                 }`}
               >
-                <div className="mb-1.5 flex items-center gap-2 font-mono text-[11px] text-zinc-400 uppercase">
-                  <Cpu className="h-3.5 w-3.5" style={{ color: project.theme.secondaryHex }} />
-                  <span>{lang === 'en' ? 'Technologies' : 'Tecnologías'}</span>
+                <div className="mb-1 flex items-center gap-2 font-mono text-[10px] tracking-[0.2em] text-zinc-500 uppercase">
+                  <Cpu
+                    className="h-3.5 w-3.5"
+                    style={{ color: project.theme.secondaryHex }}
+                  />
+                  <span>
+                    {lang === 'en' ? 'Technologies' : 'Tecnologías'}
+                  </span>
                 </div>
-                <p className="text-sm font-medium text-zinc-100">
+                <p className="font-sans text-sm font-medium text-zinc-100">
                   {project.technologies[lang]}
                 </p>
               </div>
             </div>
 
-            {/* Software Badges */}
-            <div className="border-t border-white/10 pt-5">
-              <p className="mb-3 font-mono text-[11px] font-semibold tracking-widest text-zinc-400 uppercase">
+            {/* Software Studio Micro-Chips */}
+            <div className="border-t border-white/[0.08] pt-5">
+              <p className="mb-3 font-mono text-[10px] font-semibold tracking-[0.24em] text-zinc-500 uppercase">
                 Software
               </p>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-1.5">
                 {project.software.map((sw) => (
                   <SoftwareIconBadge key={sw} id={sw} />
                 ))}
@@ -281,45 +421,54 @@ export const ProjectChapter: React.FC<Props> = ({
             </div>
           </div>
 
-          {/* Right: Cover Artwork & Primary Showcase */}
-          <div className="min-w-0 space-y-5 lg:col-span-5">
-            <div
-              className="group relative overflow-hidden rounded-3xl border border-white/15 bg-[#080A10] shadow-2xl"
+          {/* Framed Cover Key Art */}
+          <div
+            ref={coverRef}
+            className={`min-w-0 lg:col-span-5 ${
+              isEvenOrder ? 'lg:order-1' : 'lg:order-2'
+            }`}
+          >
+            <figure
+              className="group relative overflow-hidden rounded-2xl border border-white/[0.11] bg-[#07090F]"
               style={{
-                boxShadow: `0 25px 70px -25px ${project.theme.glowRgba}`,
+                boxShadow: `0 28px 80px -30px ${project.theme.glowRgba}`,
               }}
             >
-              <div className="relative flex min-h-[360px] items-center justify-center overflow-hidden bg-[#06070B] p-4 sm:min-h-[460px]">
+              <div className="relative flex min-h-[340px] items-center justify-center overflow-hidden bg-[#05060A] p-4 sm:min-h-[440px]">
                 <img
                   src={project.coverImage}
                   alt=""
                   aria-hidden="true"
-                  className="pointer-events-none absolute inset-0 h-full w-full scale-125 object-cover opacity-30 blur-2xl"
+                  loading={project.order <= 2 ? 'eager' : 'lazy'}
+                  decoding="async"
+                  className="pointer-events-none absolute inset-0 h-full w-full scale-125 object-cover opacity-25 blur-2xl"
                 />
                 <img
                   src={project.coverImage}
                   alt={project.coverAlt[lang]}
-                  className="relative z-10 max-h-[500px] w-auto max-w-full rounded-xl object-contain shadow-2xl transition-transform duration-700 group-hover:scale-[1.02]"
+                  loading={project.order <= 2 ? 'eager' : 'lazy'}
+                  decoding="async"
+                  className="relative z-10 max-h-[480px] w-auto max-w-full rounded-lg object-contain shadow-2xl transition-transform duration-700 ease-out group-hover:scale-[1.02]"
                 />
               </div>
-              <div className="relative z-10 flex items-center justify-between border-t border-white/10 bg-[#07090F]/95 px-4 py-3">
-                <span className="font-mono text-[11px] text-zinc-400">
+              <figcaption className="relative z-10 flex items-center justify-between border-t border-white/[0.08] bg-[#07090F]/95 px-4 py-3">
+                <span className="font-mono text-[10px] tracking-[0.2em] text-zinc-400 uppercase">
                   {lang === 'en' ? 'OFFICIAL COVER KEY ART' : 'PORTADA OFICIAL'}
                 </span>
                 <span
-                  className="font-mono text-[11px] font-semibold"
+                  className="font-mono text-[11px] font-bold"
                   style={{ color: project.theme.accentHex }}
                 >
                   {project.indexLabel}
                 </span>
-              </div>
-            </div>
+              </figcaption>
+            </figure>
           </div>
         </div>
 
         {/* ======================== PRIMARY VIDEO REEL (IF PRESENT) ======================== */}
         {primaryVideo && (
-          <div className="mt-10">
+          <div className="mt-14">
             <VideoPlayer
               video={primaryVideo}
               lang={lang}
@@ -329,30 +478,37 @@ export const ProjectChapter: React.FC<Props> = ({
         )}
 
         {/* ======================== INTERACTIVE GLSL TECH LAB ======================== */}
-        <div className="mt-12">
-          <InteractiveProjectLab project={project} lang={lang} />
+        <div className="mt-14">
+          <InteractiveProjectLab
+            project={project}
+            lang={lang}
+            soundEnabled={soundEnabled}
+          />
         </div>
 
         {/* ======================== TADC2 CHARACTER RIG CUTOUTS SHOWCASE ======================== */}
         {project.id === 'the-amazing-digital-circus-2' &&
           project.characterCutouts && (
-            <div className="mt-12 grid items-center gap-6 rounded-3xl border border-white/12 bg-gradient-to-br from-red-500/10 via-[#0A0C13] to-fuchsia-500/10 p-6 sm:grid-cols-3 sm:p-8">
+            <div className="mt-14 grid items-center gap-8 border-y border-white/10 bg-gradient-to-r from-red-500/[0.06] via-transparent to-fuchsia-500/[0.06] py-10 sm:grid-cols-3 sm:px-6">
               <div className="flex justify-center">
                 <img
                   src={project.characterCutouts[0]}
                   alt="Caine 3D Character Rig"
                   loading="lazy"
+                  decoding="async"
                   className="h-56 w-auto object-contain drop-shadow-[0_14px_30px_rgba(239,68,68,0.35)] transition-transform duration-500 hover:-translate-y-2"
                 />
               </div>
               <div className="text-center">
-                <span className="font-mono text-[11px] font-bold tracking-widest text-fuchsia-300 uppercase">
-                  {lang === 'en' ? 'ELASTIC 3D CHARACTER RIGS' : 'RIGS ELÁSTICOS 3D'}
+                <span className="font-mono text-[10px] font-bold tracking-[0.24em] text-fuchsia-300 uppercase">
+                  {lang === 'en'
+                    ? 'ELASTIC 3D CHARACTER RIGS'
+                    : 'RIGS ELÁSTICOS 3D'}
                 </span>
-                <p className="mt-2 font-display text-2xl font-bold text-white">
+                <p className="mt-2 font-sans text-2xl font-bold tracking-tight text-white">
                   Squash, Stretch &amp; LookDev
                 </p>
-                <p className="mt-2 text-xs leading-relaxed text-zinc-300">
+                <p className="mt-2.5 text-sm leading-relaxed text-zinc-300">
                   {lang === 'en'
                     ? 'Custom facial & body rigs sculpted for extreme cartoon expressiveness and retro-digital shading.'
                     : 'Rigs faciales y corporales personalizados para expresividad extrema y shaders retro-digitales.'}
@@ -363,130 +519,157 @@ export const ProjectChapter: React.FC<Props> = ({
                   src={project.characterCutouts[1]}
                   alt="Caine Close-Up 3D Rig"
                   loading="lazy"
+                  decoding="async"
                   className="h-56 w-auto object-contain drop-shadow-[0_14px_30px_rgba(217,70,239,0.35)] transition-transform duration-500 hover:-translate-y-2"
                 />
               </div>
             </div>
           )}
 
-        {/* ======================== PDF CHAPTERS & HIGHLIGHTS ======================== */}
-        <div className="mt-14 space-y-12">
-          {project.chapters.map((chapter) => {
-            const chapterMedia = (chapter.mediaIds || [])
-              .map((id) => mediaMap.get(id))
-              .filter((m): m is MediaAsset => Boolean(m))
-            const chapterVideo = chapter.videoId
-              ? videoMap.get(chapter.videoId)
-              : undefined
+        {/* ======================== EDITORIAL CHAPTERS & HIGHLIGHTS ======================== */}
+        {project.chapters.length > 0 && (
+          <div className="mt-16 space-y-14">
+            {project.chapters.map((chapter, chIndex) => {
+              const chapterMedia = (chapter.mediaIds || [])
+                .map((id) => mediaMap.get(id))
+                .filter((m): m is MediaAsset => Boolean(m))
+              const chapterVideo = chapter.videoId
+                ? videoMap.get(chapter.videoId)
+                : undefined
+              const hasMedia = Boolean(chapterVideo || chapterMedia.length > 0)
+              const flipChapter = (project.order + chIndex) % 2 === 1 && hasMedia
 
-            return (
-              <div
-                key={chapter.id}
-                className="rounded-3xl border border-white/10 bg-[#080A10]/85 p-6 backdrop-blur-lg sm:p-8"
-              >
-                <div className="mb-6 flex items-center gap-3 border-b border-white/10 pb-3">
-                  <span
-                    className="h-2.5 w-2.5 rounded-full"
-                    style={{ backgroundColor: project.theme.accentHex }}
-                  />
-                  <h3 className="font-display text-xl font-bold tracking-wide text-white sm:text-2xl">
-                    {chapter.title[lang]}
-                  </h3>
-                </div>
-
-                <div className="grid gap-8 lg:grid-cols-12">
-                  {/* Text & Highlights */}
-                  <div
-                    className={`space-y-5 ${
-                      chapterVideo || chapterMedia.length > 0
-                        ? 'lg:col-span-6'
-                        : 'lg:col-span-12'
-                    }`}
-                  >
-                    {chapter.body?.map((p, idx) => (
-                      <p
-                        key={idx}
-                        className="text-sm leading-relaxed text-zinc-300 sm:text-base"
+              return (
+                <section
+                  key={chapter.id}
+                  className="border-t border-white/[0.08] pt-10"
+                >
+                  <div className="mb-7 flex flex-wrap items-baseline justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <span
+                        className="font-mono text-xs font-bold"
+                        style={{ color: project.theme.accentHex }}
                       >
-                        {p[lang]}
-                      </p>
-                    ))}
-
-                    {chapter.highlights?.map((hl, idx) => (
-                      <div
-                        key={idx}
-                        className="rounded-2xl border border-white/10 bg-white/[0.03] p-4"
-                      >
-                        <h4
-                          className="font-display text-sm font-bold sm:text-base"
-                          style={{ color: project.theme.accentHex }}
-                        >
-                          {hl.title[lang]}
-                        </h4>
-                        <ul className="mt-2 space-y-1.5 text-sm leading-relaxed text-zinc-300">
-                          {hl.bullets.map((b, bIdx) => (
-                            <li key={bIdx} className="flex items-start gap-2">
-                              <span
-                                className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full"
-                                style={{
-                                  backgroundColor: project.theme.secondaryHex,
-                                }}
-                              />
-                              <span>{b[lang]}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    ))}
+                        {project.indexLabel}.{chIndex + 1}
+                      </span>
+                      <h3 className="font-sans text-xl font-bold tracking-tight text-white sm:text-2xl">
+                        {chapter.title[lang]}
+                      </h3>
+                    </div>
                   </div>
 
-                  {/* Chapter Paired Media & Video */}
-                  {(chapterVideo || chapterMedia.length > 0) && (
-                    <div className="space-y-4 lg:col-span-6">
-                      {chapterVideo && (
-                        <VideoPlayer
-                          video={chapterVideo}
-                          lang={lang}
-                          accentHex={project.theme.accentHex}
-                        />
-                      )}
-                      {chapterMedia.length > 0 && (
-                        <div
-                          className={`grid gap-4 ${
-                            chapterMedia.length === 1
-                              ? 'grid-cols-1'
-                              : 'sm:grid-cols-2'
-                          }`}
+                  <div className="grid items-start gap-8 lg:grid-cols-12 lg:gap-10">
+                    {/* Text & Highlights */}
+                    <div
+                      className={`space-y-6 ${
+                        hasMedia ? 'lg:col-span-6' : 'lg:col-span-12'
+                      } ${flipChapter ? 'lg:order-2' : 'lg:order-1'}`}
+                    >
+                      {chapter.body?.map((p, idx) => (
+                        <p
+                          key={idx}
+                          className="text-sm leading-[1.78] text-zinc-300 sm:text-[16px]"
                         >
-                          {chapterMedia.map((asset) => (
-                            <ShaderImagePortal
-                              key={asset.id}
-                              asset={asset}
-                              lang={lang}
-                              accentHex={project.theme.accentHex}
-                              onOpen={() => openAssetInFullGallery(asset.id)}
-                              className={
-                                asset.aspect === 'portrait'
-                                  ? 'aspect-[3/4]'
-                                  : 'aspect-[16/10]'
-                              }
-                            />
+                          {p[lang]}
+                        </p>
+                      ))}
+
+                      {chapter.highlights && chapter.highlights.length > 0 && (
+                        <div className="space-y-4">
+                          {chapter.highlights.map((hl, idx) => (
+                            <div
+                              key={idx}
+                              className="border-l-2 bg-white/[0.018] py-3 pr-4 pl-5"
+                              style={{
+                                borderLeftColor: `${project.theme.accentHex}99`,
+                              }}
+                            >
+                              <h4
+                                className="font-sans text-sm font-semibold tracking-tight sm:text-[15px]"
+                                style={{ color: project.theme.accentHex }}
+                              >
+                                {hl.title[lang]}
+                              </h4>
+                              <ul className="mt-2 space-y-1.5 text-sm leading-relaxed text-zinc-300">
+                                {hl.bullets.map((b, bIdx) => (
+                                  <li
+                                    key={bIdx}
+                                    className="flex items-start gap-2.5"
+                                  >
+                                    <span
+                                      className="mt-2 h-1 w-1 shrink-0 rounded-full"
+                                      style={{
+                                        backgroundColor:
+                                          project.theme.secondaryHex,
+                                      }}
+                                    />
+                                    <span>{b[lang]}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
                           ))}
                         </div>
                       )}
                     </div>
-                  )}
-                </div>
-              </div>
-            )
-          })}
-        </div>
+
+                    {/* Chapter Paired Media & Video */}
+                    {hasMedia && (
+                      <div
+                        className={`space-y-4 lg:col-span-6 ${
+                          flipChapter ? 'lg:order-1' : 'lg:order-2'
+                        }`}
+                      >
+                        {chapterVideo && (
+                          <VideoPlayer
+                            video={chapterVideo}
+                            lang={lang}
+                            accentHex={project.theme.accentHex}
+                          />
+                        )}
+                        {chapterMedia.length > 0 && (
+                          <div
+                            className={`grid gap-4 ${
+                              chapterMedia.length === 1
+                                ? 'grid-cols-1'
+                                : 'sm:grid-cols-2'
+                            }`}
+                          >
+                            {chapterMedia.map((asset, mIdx) => (
+                              <ShaderImagePortal
+                                key={asset.id}
+                                asset={asset}
+                                lang={lang}
+                                accentHex={project.theme.accentHex}
+                                onOpen={() => openAssetInFullGallery(asset.id)}
+                                priority={
+                                  project.order === 1 &&
+                                  chIndex === 0 &&
+                                  mIdx === 0
+                                }
+                                className={
+                                  asset.aspect === 'portrait'
+                                    ? 'aspect-[3/4]'
+                                    : 'aspect-[16/10]'
+                                }
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </section>
+              )
+            })}
+          </div>
+        )}
 
         {/* ======================== ADDITIONAL MOTION & VIDEO DOCUMENTATION ======================== */}
         {remainingVideos.length > 0 && (
-          <div className="mt-12">
-            <div className="mb-5 flex items-center justify-between">
-              <h3 className="font-mono text-xs font-bold tracking-[0.22em] text-zinc-400 uppercase">
+          <div className="mt-16 border-t border-white/[0.08] pt-10">
+            <div className="mb-6 flex items-center justify-between">
+              <h3 className="font-mono text-[11px] font-bold tracking-[0.24em] text-zinc-400 uppercase">
                 {lang === 'en'
                   ? 'MOTION & SYSTEM DOCUMENTATION'
                   : 'REGISTRO AUDIOVISUAL DEL SISTEMA'}
@@ -511,9 +694,9 @@ export const ProjectChapter: React.FC<Props> = ({
 
         {/* ======================== REMAINING PDF SHOWCASE STILLS ======================== */}
         {remainingPdfStills.length > 0 && (
-          <div className="mt-12">
-            <div className="mb-5 flex items-center justify-between">
-              <h3 className="font-mono text-xs font-bold tracking-[0.22em] text-zinc-400 uppercase">
+          <div className="mt-16 border-t border-white/[0.08] pt-10">
+            <div className="mb-6 flex items-center justify-between">
+              <h3 className="font-mono text-[11px] font-bold tracking-[0.24em] text-zinc-400 uppercase">
                 {project.order <= 5
                   ? lang === 'en'
                     ? 'VISUAL SHOWCASE SEQUENCE (PDF ORDER)'
@@ -545,6 +728,7 @@ export const ProjectChapter: React.FC<Props> = ({
                     lang={lang}
                     accentHex={project.theme.accentHex}
                     onOpen={() => openAssetInFullGallery(asset.id)}
+                    priority={project.order === 1 && i === 0}
                     className={spanClass}
                   />
                 )
@@ -556,41 +740,80 @@ export const ProjectChapter: React.FC<Props> = ({
         {/* ======================== CLOSING QUOTE (PALENQUE P10) ======================== */}
         {project.closingQuote && (
           <blockquote
-            className="mt-12 rounded-3xl border border-white/15 bg-gradient-to-r from-white/[0.04] to-transparent p-6 text-center font-display text-xl font-bold tracking-tight text-white sm:p-8 sm:text-3xl"
-            style={{ borderColor: `${project.theme.accentHex}44` }}
+            className="mt-16 border-y border-white/10 py-10 text-center font-sans text-xl font-medium tracking-tight text-zinc-100 sm:text-3xl"
+            style={{
+              borderColor: `${project.theme.accentHex}44`,
+            }}
           >
             &ldquo;{project.closingQuote[lang]}&rdquo;
           </blockquote>
         )}
 
-        {/* ======================== FOLDER ARCHIVE / BTS / WIP EXTRAS ======================== */}
+        {/* ======================== COLLAPSIBLE ARCHIVE / BTS / WIP DRAWER ======================== */}
         {folderExtras.length > 0 && (
-          <div className="mt-10 rounded-3xl border border-white/10 bg-white/[0.02] p-5 sm:p-6">
+          <div className="mt-14 border-t border-white/[0.08] pt-6">
             <button
               type="button"
               onClick={() => setShowArchiveExtras((v) => !v)}
-              className="flex w-full items-center justify-between text-left"
+              aria-expanded={showArchiveExtras}
+              className="group flex w-full flex-wrap items-center justify-between gap-4 rounded-xl border border-white/[0.08] bg-white/[0.02] px-4 py-3.5 text-left transition-colors duration-200 hover:border-white/20 hover:bg-white/[0.045] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2EFF7B] sm:px-5"
             >
-              <div>
-                <span className="font-mono text-[11px] font-semibold tracking-widest text-zinc-400 uppercase">
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="font-mono text-[11px] font-semibold tracking-[0.2em] text-zinc-300 uppercase">
                   {lang === 'en'
-                    ? 'PROJECT ARCHIVE · BTS / WIP & ADDITIONAL ASSETS'
-                    : 'ARCHIVO DEL PROYECTO · DETRÁS DE CÁMARAS / WIP'}
+                    ? 'PROJECT ARCHIVE · BTS / WIP'
+                    : 'ARCHIVO DEL PROYECTO · BTS / WIP'}
                 </span>
-                <p className="mt-0.5 text-xs text-zinc-500">
-                  {folderExtras.length}{' '}
-                  {lang === 'en'
-                    ? 'supplementary captures from the project folder'
-                    : 'capturas complementarias de la carpeta del proyecto'}
-                </p>
+                <span
+                  className="rounded-md border px-2 py-0.5 font-mono text-[10px] font-bold"
+                  style={{
+                    borderColor: `${project.theme.accentHex}55`,
+                    backgroundColor: `${project.theme.accentHex}14`,
+                    color: project.theme.accentHex,
+                  }}
+                >
+                  +{folderExtras.length}{' '}
+                  {lang === 'en' ? 'FRAMES' : 'CAPTURAS'}
+                </span>
               </div>
-              <span className="flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-white/5 text-zinc-300">
-                {showArchiveExtras ? (
-                  <ChevronUp className="h-4 w-4" />
-                ) : (
-                  <ChevronDown className="h-4 w-4" />
+
+              <div className="flex items-center gap-3">
+                {/* Preview thumbnail peek strip when collapsed */}
+                {!showArchiveExtras && (
+                  <div
+                    aria-hidden="true"
+                    className="hidden items-center -space-x-2 sm:flex"
+                  >
+                    {folderExtras.slice(0, 3).map((extra) => (
+                      <img
+                        key={extra.id}
+                        src={extra.src}
+                        alt=""
+                        loading="lazy"
+                        decoding="async"
+                        className="h-7 w-11 rounded border border-white/20 object-cover opacity-70 transition-opacity group-hover:opacity-100"
+                      />
+                    ))}
+                  </div>
                 )}
-              </span>
+
+                <span className="inline-flex items-center gap-1.5 font-mono text-[11px] text-zinc-400 transition-colors group-hover:text-white">
+                  <span>
+                    {showArchiveExtras
+                      ? lang === 'en'
+                        ? 'Collapse'
+                        : 'Ocultar'
+                      : lang === 'en'
+                        ? 'Inspect Archive'
+                        : 'Explorar Archivo'}
+                  </span>
+                  {showArchiveExtras ? (
+                    <ChevronUp className="h-4 w-4" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4" />
+                  )}
+                </span>
+              </div>
             </button>
 
             {showArchiveExtras && (
@@ -611,6 +834,49 @@ export const ProjectChapter: React.FC<Props> = ({
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {/* ======================== CINEMATIC "NEXT WORK ->" BRIDGE ======================== */}
+        {nextProject && (
+          <div className="mt-16 border-t border-white/[0.08] pt-8">
+            <button
+              type="button"
+              data-cursor="NEXT"
+              onClick={() => onJumpTo?.(`#project-${nextProject.slug}`)}
+              className="group relative flex w-full items-center justify-between gap-6 overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.015] px-6 py-6 text-left transition-all duration-300 hover:border-white/25 hover:bg-white/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2EFF7B] sm:px-8 sm:py-7"
+            >
+              {/* Hover accent glow */}
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100"
+                style={{
+                  background: `radial-gradient(600px circle at 85% 50%, ${nextProject.accentHex}24, transparent 70%)`,
+                }}
+              />
+
+              <div className="relative z-10 min-w-0">
+                <div className="flex items-center gap-2.5 font-mono text-[11px] tracking-[0.22em] text-zinc-400 uppercase">
+                  <span>{lang === 'en' ? 'NEXT WORK' : 'SIGUIENTE OBRA'}</span>
+                  <span style={{ color: nextProject.accentHex }}>
+                    {nextProject.indexLabel}
+                  </span>
+                </div>
+                <p className="mt-2 truncate font-display text-2xl font-bold tracking-tight text-white transition-transform duration-300 group-hover:translate-x-1 sm:text-3xl">
+                  {nextProject.title}
+                </p>
+              </div>
+
+              <span
+                className="relative z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-white/15 bg-black/50 text-zinc-200 transition-all duration-300 group-hover:translate-x-1 group-hover:text-white"
+                style={{
+                  borderColor: `${nextProject.accentHex}66`,
+                  boxShadow: `0 0 28px -8px ${nextProject.accentHex}88`,
+                }}
+              >
+                <ArrowRight className="h-5 w-5" />
+              </span>
+            </button>
           </div>
         )}
       </div>

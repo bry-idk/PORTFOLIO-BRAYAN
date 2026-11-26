@@ -2,28 +2,29 @@ import React from 'react'
 import { SOFTWARE_META } from '../data/projectsData'
 import { SoftwareId } from '../types/portfolio'
 
-interface Props {
+export interface SoftwareIconBadgeProps {
   id: SoftwareId
 }
 
-export const SoftwareIconBadge: React.FC<Props> = ({ id }) => {
+export const SoftwareIconBadge: React.FC<SoftwareIconBadgeProps> = ({ id }) => {
   const meta = SOFTWARE_META[id]
 
   return (
     <div
       title={meta.name}
-      className="group relative inline-flex items-center gap-2 rounded-xl border border-white/10 bg-[#0D1018]/90 px-2.5 py-1.5 backdrop-blur-md transition-all duration-200 hover:border-white/30 hover:bg-white/[0.08]"
+      className="group relative inline-flex items-center gap-2 rounded-md border border-white/[0.08] bg-white/[0.025] px-2 py-1 transition-colors duration-200 hover:border-white/25 hover:bg-white/[0.06]"
     >
       <span
-        className="flex h-6 w-6 items-center justify-center rounded-lg border border-white/15 font-mono text-[10px] font-bold tracking-tighter shadow-inner"
+        className="flex h-4 min-w-[1.25rem] items-center justify-center rounded-[3px] border px-1 font-mono text-[9px] font-bold leading-none tracking-tight transition-colors duration-200"
         style={{
           color: meta.color,
-          background: `radial-gradient(circle at 30% 25%, ${meta.color}26, rgba(10,12,18,0.95))`,
+          borderColor: `${meta.color}40`,
+          backgroundColor: `${meta.color}12`,
         }}
       >
         {meta.short}
       </span>
-      <span className="font-sans text-xs font-medium text-zinc-200 group-hover:text-white">
+      <span className="font-mono text-[11px] font-medium tracking-tight text-zinc-300 transition-colors duration-200 group-hover:text-white">
         {meta.name}
       </span>
     </div>

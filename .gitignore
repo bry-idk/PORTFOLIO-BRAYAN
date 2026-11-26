@@ -16,13 +16,16 @@ playwright-report
 test-results
 
 # Raw source materials (already web-optimized inside public/media/)
-# Excluded so the repository stays lightweight and below GitHub's 100 MB file limit
-pdf portfolio completo.pdf
-portfolio pag 1.pdf
-link behance.txt
-Cronicas de Palenque/
-General/
-Kane no Hibiki/
-Notas y Colores/
-SOGNO/
-The Amazing Digital Circus 2/
+# Anchored to repository root with leading / so public/media/projects/sogno/
+# (and reminiscencia/vestigio) are never ignored on case-insensitive filesystems.
+/pdf portfolio completo.pdf
+/portfolio pag 1.pdf
+/link behance.txt
+/Cronicas de Palenque/
+/General/
+/Kane no Hibiki/
+/Notas y Colores/
+/Reminiscencia/
+/SOGNO/
+/The Amazing Digital Circus 2/
+/Vestigio/

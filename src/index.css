@@ -3,47 +3,135 @@
 @tailwind utilities;
 
 :root {
-  --bg-obsidian: #06070b;
+  --bg-obsidian: #05060a;
+  --bg-gallery: #090b11;
+  --surface-glass: rgba(8, 10, 16, 0.76);
+  --surface-glass-strong: rgba(7, 9, 15, 0.9);
+  --hairline: rgba(255, 255, 255, 0.09);
+  --hairline-strong: rgba(255, 255, 255, 0.16);
   --accent-neon: #2eff7b;
   --accent-violet: #8b3dff;
+  --active-accent: #2eff7b;
+  --ease-editorial: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 html {
-  background-color: #06070b;
+  background-color: var(--bg-obsidian);
   color: #f4f4f5;
   scroll-behavior: auto;
+  color-scheme: dark;
 }
 
 body {
   overflow-x: hidden;
-  background-color: #06070b;
+  background-color: var(--bg-obsidian);
   font-family: 'Space Grotesk', 'Plus Jakarta Sans', system-ui, sans-serif;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Accessible editorial focus rings */
+:focus-visible {
+  outline: 1.5px solid rgba(46, 255, 123, 0.8);
+  outline-offset: 3px;
 }
 
 /* Custom sleek scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
+  width: 5px;
+  height: 5px;
 }
 ::-webkit-scrollbar-track {
-  background: #06070b;
+  background: var(--bg-obsidian);
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(139, 61, 255, 0.45);
+  background: rgba(255, 255, 255, 0.18);
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(46, 255, 123, 0.7);
+  background: rgba(46, 255, 123, 0.65);
+}
+
+/* Architectural studio glass surfaces */
+.glass-studio {
+  background: var(--surface-glass);
+  border: 1px solid var(--hairline);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.glass-studio-strong {
+  background: var(--surface-glass-strong);
+  border: 1px solid var(--hairline-strong);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+
+/* Architectural 1px horizontal divider */
+.editorial-rule {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.16) 0%,
+    rgba(255, 255, 255, 0.08) 65%,
+    transparent 100%
+  );
+}
+
+/* Subtle editorial film grain layer */
+.editorial-grain {
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.35'/%3E%3C/svg%3E");
+  background-size: 180px 180px;
+}
+
+/* Soft legibility vignette behind hero typography over live WebGL canvas */
+.hero-legibility-scrim {
+  background: radial-gradient(
+    ellipse 85% 75% at 24% 48%,
+    rgba(5, 6, 10, 0.82) 0%,
+    rgba(5, 6, 10, 0.56) 52%,
+    rgba(5, 6, 10, 0) 100%
+  );
+}
+
+@media (max-width: 1023px) {
+  .hero-legibility-scrim {
+    background: radial-gradient(
+      ellipse 100% 70% at 50% 34%,
+      rgba(5, 6, 10, 0.84) 0%,
+      rgba(5, 6, 10, 0.62) 55%,
+      rgba(5, 6, 10, 0.12) 100%
+    );
+  }
+}
+
+/* Horizontal edge-fade mask utility for overflow scrollers & mobile docks */
+.mask-fade-x {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    #000 5%,
+    #000 95%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    #000 5%,
+    #000 95%,
+    transparent 100%
+  );
 }
 
 /* Subtle halftone editorial motif inspired by portfolio pag 1.pdf */
 .halftone-grid {
-  background-image: radial-gradient(rgba(255, 255, 255, 0.085) 1px, transparent 1px);
-  background-size: 16px 16px;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.075) 1px, transparent 1px);
+  background-size: 18px 18px;
 }
 
 .halftone-grid-dense {
-  background-image: radial-gradient(rgba(46, 255, 123, 0.14) 1px, transparent 1px);
-  background-size: 12px 12px;
+  background-image: radial-gradient(rgba(46, 255, 123, 0.13) 1px, transparent 1px);
+  background-size: 13px 13px;
 }
 
 /* Subtle architectural scanlines */
@@ -75,8 +163,31 @@ body {
 
 /* Editorial outline text utility */
 .text-stroke-subtle {
-  -webkit-text-stroke: 1px rgba(255, 255, 255, 0.22);
+  -webkit-text-stroke: 1px rgba(255, 255, 255, 0.24);
   color: transparent;
+}
+
+/* Editorial display heading safety */
+.display-safe {
+  overflow-wrap: break-word;
+  word-break: normal;
+  hyphens: none;
+}
+
+/* Fluid kinetic slide-up utility */
+@keyframes editorialRevealUp {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 14px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.animate-editorial-up {
+  animation: editorialRevealUp 0.65s var(--ease-editorial) both;
 }
 
 @media (prefers-reduced-motion: reduce) {
